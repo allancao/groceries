@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#faf9f6">
+<title>Cart&Co</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg: #faf9f6;
+  --surface: #ffffff;
+  --surface2: #f2f0eb;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.14);
+  --text: #1a1917;
+  --muted: #6b6860;
+  --hint: #a09e99;
+  --accent: #2d6a4f;
+  --accent-light: #e8f5ef;
+  --accent2: #c0392b;
+  --warn: #e07a5f;
+  --tag-bg: #fff8e6;
+  --tag-text: #92620a;
+  --tag-border: #f0d080;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --font: 'Georgia', 'Times New Roman', serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1918;
+    --surface: #232220;
+    --surface2: #2c2b28;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #ede9e3;
+    --muted: #9a9790;
+    --hint: #6b6860;
+    --accent: #4caf82;
+    --accent-light: #1a3328;
+    --accent2: #e05c4b;
+    --warn: #e07a5f;
+    --tag-bg: #2a1f08;
+    --tag-text: #d4920f;
+    --tag-border: #4a3510;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  meta[name="theme-color"] { content: #1a1918; }
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); overscroll-behavior: none; }
+
+#app { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; position: relative; }
+
+/* ── HEADER ── */
+.header {
+  flex-shrink: 0;
+  padding: env(safe-area-inset-top, 12px) 16px 0;
+  background: var(--bg);
+  border-bottom: 0.5px solid var(--border);
+  z-index: 50;
+}
+.header-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 10px; }
+.app-title { font-family: var(--font); font-size: 24px; font-weight: normal; letter-spacing: -0.5px; color: var(--text); }
+.app-title em { color: var(--accent); font-style: normal; }
+.item-count { font-size: 12px; color: var(--hint); background: var(--surface2); padding: 4px 10px; border-radius: 20px; font-family: var(--font-ui); }
+
+.tabs { display: flex; gap: 0; border-bottom: none; margin: 0 -16px; }
+.tab { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 500; color: var(--hint); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; font-family: var(--font-ui); transition: all 0.15s; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── FILTER BAR ── */
+.filter-wrap { flex-shrink: 0; background: var(--bg); border-bottom: 0.5px solid var(--border); }
+.filter-bar { display: flex; gap: 7px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; }
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-chip { flex-shrink: 0; padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.15s; }
+.filter-chip.active { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); }
+
+/* ── INPUT AREA ── */
+.input-wrap { flex-shrink: 0; background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 12px 16px; }
+.input-row { display: flex; gap: 8px; align-items: center; }
+.main-input {
+  flex: 1; padding: 12px 14px; border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border2); background: var(--surface2);
+  color: var(--text); font-size: 16px; font-family: var(--font-ui);
+  outline: none; transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+.main-input:focus { border-color: var(--accent); }
+.main-input::placeholder { color: var(--hint); }
+
+.mic-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 0.5px solid var(--border2); background: var(--surface2);
+  color: var(--muted); font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.15s; position: relative;
+}
+.mic-btn.recording { background: #fee2e2; border-color: #ef4444; }
+.mic-btn.recording::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 2px solid #ef4444; animation: ripple 1s infinite; }
+@keyframes ripple { 0%{transform:scale(1);opacity:0.8} 100%{transform:scale(1.5);opacity:0} }
+
+.add-btn {
+  padding: 12px 18px; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff; border: none;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+  font-family: var(--font-ui); transition: all 0.12s;
+  white-space: nowrap; flex-shrink: 0;
+}
+.add-btn:active { transform: scale(0.96); opacity: 0.9; }
+.add-btn.loading { opacity: 0.6; pointer-events: none; }
+
+.status-row { margin-top: 8px; min-height: 20px; }
+.status-msg { font-size: 12px; padding: 6px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; }
+.status-msg.thinking { background: var(--accent-light); color: var(--accent); }
+.status-msg.error { background: #fee2e2; color: #b91c1c; }
+.status-msg.voice { background: var(--surface2); color: var(--muted); }
+.dot-anim::after { content: ''; animation: dots 1.2s infinite; }
+@keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+
+/* ── SCROLL AREA ── */
+.scroll-area { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: env(safe-area-inset-bottom, 20px); }
+
+/* ── LIST ── */
+.section { padding: 0 16px; margin-top: 18px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.section-label { font-size: 11px; letter-spacing: 0.9px; text-transform: uppercase; color: var(--hint); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.section-count { font-size: 11px; color: var(--hint); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
+
+.item-card {
+  background: var(--surface); border: 0.5px solid var(--border);
+  border-radius: var(--radius); padding: 13px 14px;
+  margin-bottom: 9px; display: flex; align-items: flex-start; gap: 12px;
+  box-shadow: var(--shadow); transition: opacity 0.2s, background 0.2s;
+  cursor: default;
+}
+.item-card.checked { background: var(--surface2); box-shadow: none; opacity: 0.65; }
+.item-card.checked .item-name { text-decoration: line-through; color: var(--hint); }
+
+.check-circle {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid var(--border2); background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; margin-top: 1px;
+  transition: all 0.15s;
+}
+.check-circle.done { background: var(--accent); border-color: var(--accent); }
+.check-circle svg { display: none; }
+.check-circle.done svg { display: block; }
+
+.item-body { flex: 1; min-width: 0; }
+.item-name { font-size: 17px; font-family: var(--font); color: var(--text); line-height: 1.25; word-break: break-word; }
+.item-sub { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
+.qty-pill { font-size: 11px; color: var(--muted); background: var(--surface2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); }
+.recipe-pill { font-size: 11px; color: var(--tag-text); background: var(--tag-bg); border: 0.5px solid var(--tag-border); padding: 2px 9px; border-radius: 8px; font-family: var(--font-ui); font-weight: 500; }
+.note-pill { font-size: 11px; color: var(--muted); font-style: italic; }
+
+.del-btn { width: 30px; height: 30px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; padding-bottom: 1px; }
+.del-btn:active { background: #fee2e2; color: #ef4444; }
+
+.clear-link { font-size: 12px; color: var(--warn); background: none; border: none; cursor: pointer; font-family: var(--font-ui); padding: 2px 0; }
+
+.empty { text-align: center; padding: 60px 24px; }
+.empty-icon { font-size: 48px; margin-bottom: 14px; }
+.empty-title { font-family: var(--font); font-size: 18px; color: var(--muted); margin-bottom: 6px; }
+.empty-sub { font-size: 13px; color: var(--hint); line-height: 1.5; }
+
+/* ── API KEY PROMPT ── */
+.api-banner {
+  margin: 14px 16px 0; padding: 12px 14px;
+  background: var(--tag-bg); border: 0.5px solid var(--tag-border);
+  border-radius: var(--radius-sm); font-size: 13px;
+}
+.api-banner strong { display: block; color: var(--tag-text); margin-bottom: 6px; font-size: 13px; }
+.api-banner p { color: var(--muted); line-height: 1.5; margin-bottom: 8px; }
+.api-key-row { display: flex; gap: 8px; }
+.api-key-input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 0.5px solid var(--border2); background: var(--surface); color: var(--text); font-size: 13px; font-family: monospace; outline: none; }
+.api-save-btn { padding: 8px 14px; border-radius: 8px; background: var(--accent); color: #fff; border: none; font-size: 13px; cursor: pointer; font-family: var(--font-ui); }
+.api-status { font-size: 11px; color: var(--accent); margin-top: 5px; display: none; }
+
+/* ── HISTORY ── */
+.hist-item {
+  background: var(--surface); border: 0.5px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  box-shadow: var(--shadow);
+}
+.hist-name { font-size: 16px; font-family: var(--font); color: var(--text); }
+.hist-meta { font-size: 12px; color: var(--hint); margin-top: 3px; font-family: var(--font-ui); }
+.readd-btn { flex-shrink: 0; font-size: 12px; color: var(--accent); background: var(--accent-light); border: none; border-radius: 10px; padding: 6px 11px; cursor: pointer; font-family: var(--font-ui); font-weight: 500; white-space: nowrap; }
+
+/* ── SETTINGS PANEL ── */
+.settings-panel { padding: 16px; }
+.settings-panel h2 { font-family: var(--font); font-size: 18px; font-weight: normal; margin-bottom: 16px; color: var(--text); }
+.settings-section { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+.settings-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--hint); margin-bottom: 10px; font-weight: 600; }
+.settings-input { width: 100%; padding: 10px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 14px; font-family: monospace; outline: none; margin-bottom: 8px; }
+.settings-save { padding: 10px 18px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-ui); }
+.settings-hint { font-size: 12px; color: var(--hint); line-height: 1.5; margin-top: 6px; }
+.settings-hint a { color: var(--accent); text-decoration: none; }
+.danger-btn { padding: 10px 18px; border-radius: var(--radius-sm); background: #fee2e2; color: #b91c1c; border: 0.5px solid #fca5a5; font-size: 14px; cursor: pointer; font-family: var(--font-ui); width: 100%; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="header">
+    <div class="header-top">
+      <div class="app-title">Cart<em>&</em>Co</div>
+      <div class="item-count" id="itemCount">0 items</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('list')">List</button>
+      <button class="tab" onclick="switchTab('history')">History</button>
+      <button class="tab" onclick="switchTab('settings')">Settings</button>
+    </div>
+  </div>
+
+  <!-- LIST TAB -->
+  <div id="tab-list" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+    <div class="filter-wrap">
+      <div class="filter-bar" id="filterBar">
+        <button class="filter-chip active" onclick="setFilter('all',this)">All</button>
+      </div>
+    </div>
+    <div class="input-wrap">
+      <div class="input-row">
+        <input class="main-input" id="mainInput" type="text" placeholder="Type or speak an item…" autocomplete="off" autocorrect="off" />
+        <button class="mic-btn" id="micBtn" onclick="toggleVoice()">🎤</button>
+        <button class="add-btn" id="addBtn" onclick="handleAdd()">Add</button>
+      </div>
+      <div class="status-row"><span id="statusMsg"></span></div>
+    </div>
+    <div class="scroll-area" id="listScroll">
+      <div id="groceryList"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="tab-history" style="display:none;flex:1;overflow:hidden;">
+    <div class="scroll-area" id="histScroll" style="padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span style="font-family:var(--font);font-size:16px;color:var(--muted);">Purchased items</span>
+        <button class="clear-link" onclick="clearHistory()">Clear all</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div id="tab-settings" style="display:none;flex:1;overflow:hidden;">
+    <div class="scroll-area">
+      <div class="settings-panel">
+        <h2>Settings</h2>
+        <div class="settings-section">
+          <div class="settings-label">Claude API Key</div>
+          <input class="settings-input" id="apiKeyInput" type="password" placeholder="sk-ant-..." />
+          <button class="settings-save" onclick="saveApiKey()">Save key</button>
+          <div class="settings-hint">
+            Your key is stored only on this device (localStorage). Get one at
+            <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
+            Without a key, the app uses keyword-based parsing (still works offline).
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">Data</div>
+          <div class="settings-hint" style="margin-bottom:10px;">All your grocery data is saved locally on this device. Nothing is sent to any server except Claude API calls when parsing items (only the text you type is sent).</div>
+          <button class="danger-btn" onclick="nukeData()">🗑 Clear all data</button>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">Add to home screen</div>
+          <div class="settings-hint">
+            <strong style="color:var(--text);font-size:13px;">iPhone (Safari):</strong> Tap the Share button → "Add to Home Screen"<br><br>
+            <strong style="color:var(--text);font-size:13px;">Android (Chrome):</strong> Tap ⋮ menu → "Add to Home Screen"
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── CATEGORIES ──
+const CATS = {
+  produce:   { label:'Produce',         icon:'🥦', kw:['apple','banana','orange','grape','strawberry','blueberry','raspberry','lemon','lime','avocado','tomato','lettuce','spinach','kale','broccoli','carrot','celery','cucumber','bell pepper','pepper','onion','garlic','potato','sweet potato','yam','corn','mushroom','zucchini','asparagus','pear','peach','plum','mango','pineapple','melon','watermelon','cantaloupe','herb','basil','cilantro','parsley','mint','dill','chive','ginger','beet','radish','arugula','cabbage','cauliflower','eggplant','squash','scallion','shallot','fennel','artichoke','brussels','leek','chard','collard','endive','turnip','parsnip','rutabaga','okra','bok choy','bean sprout','alfalfa'] },
+  meat:      { label:'Meat & Seafood',  icon:'🥩', kw:['chicken','beef','pork','lamb','turkey','salmon','tuna','shrimp','steak','ground beef','ground turkey','ground pork','bacon','sausage','ham','fish','tilapia','cod','halibut','haddock','crab','lobster','duck','veal','brisket','rib','hot dog','pepperoni','prosciutto','salami','chorizo','pancetta','anchovy','sardine','clam','mussel','oyster','scallop','squid','octopus','venison','bison','rabbit'] },
+  dairy:     { label:'Dairy & Eggs',    icon:'🥛', kw:['milk','cheese','butter','yogurt','cream','egg','sour cream','cream cheese','cottage cheese','mozzarella','cheddar','parmesan','brie','feta','ricotta','whipped cream','half and half','heavy cream','oat milk','almond milk','soy milk','coconut milk','gouda','provolone','swiss','gruyere','manchego','mascarpone','kefir','ghee','queso'] },
+  bakery:    { label:'Bakery & Bread',  icon:'🍞', kw:['bread','bagel','muffin','croissant','roll','tortilla','pita','naan','baguette','sourdough','rye','focaccia','english muffin','pancake','waffle mix','biscuit','cracker','pretzel','brioche','challah','ciabatta','wrap','flatbread'] },
+  pantry:    { label:'Pantry',          icon:'🫙', kw:['pasta','rice','flour','sugar','salt','pepper','oil','vinegar','soy sauce','sauce','soup','broth','stock','can','bean','lentil','chickpea','quinoa','oat','oatmeal','cereal','granola','honey','syrup','peanut butter','almond butter','jam','jelly','ketchup','mustard','mayo','mayonnaise','dressing','hot sauce','worcestershire','balsamic','olive oil','vegetable oil','coconut oil','baking powder','baking soda','vanilla','chocolate','cocoa','spice','seasoning','curry','cumin','paprika','cinnamon','turmeric','chili','bay leaf','thyme','rosemary','oregano','tomato paste','salsa','taco','noodle','ramen','couscous','farro','barley','polenta','cornmeal','breadcrumb','panko','nutritional yeast','miso','tahini','fish sauce','oyster sauce','hoisin','sriracha','tabasco','capers','artichoke heart','sundried tomato','roasted pepper'] },
+  frozen:    { label:'Frozen',          icon:'🧊', kw:['frozen','ice cream','popsicle','pizza','burrito','edamame','pea','fry','waffle','ice','sorbet','gelato','frozen yogurt','frozen fruit','frozen vegetable'] },
+  drinks:    { label:'Drinks',          icon:'🧃', kw:['water','juice','soda','beer','wine','coffee','tea','sparkling','kombucha','lemonade','energy drink','sports drink','cocoa','hot chocolate','cider','spirits','whiskey','vodka','gin','rum','tequila','prosecco','champagne','sake','cold brew'] },
+  snacks:    { label:'Snacks',          icon:'🍿', kw:['chip','popcorn','nut','almond','walnut','cashew','pistachio','pecan','trail mix','cookie','snack bar','granola bar','jerky','dried fruit','candy','chocolate bar','gummy','pretzel','rice cake','hummus','guacamole','cracker','pita chip','tortilla chip'] },
+  household: { label:'Household',       icon:'🧴', kw:['soap','shampoo','conditioner','toothpaste','deodorant','toilet paper','paper towel','dish soap','laundry','detergent','sponge','trash bag','zip lock','aluminum foil','plastic wrap','bleach','cleaner','disinfectant','lotion','razor','floss','mouthwash','sunscreen','hand sanitizer','dryer sheet','fabric softener','light bulb','battery','candle'] },
+};
+
+function categorize(name) {
+  const lower = name.toLowerCase();
+  for (const [k, c] of Object.entries(CATS)) {
+    if (c.kw.some(w => lower.includes(w))) return k;
+  }
+  return 'pantry';
+}
+
+// ── STATE ──
+let items = [], history = [], activeFilter = 'all', currentTab = 'list';
+let recognition = null, isRecording = false;
+
+function load() {
+  try { items = JSON.parse(localStorage.getItem('gco_items') || '[]'); } catch { items = []; }
+  try { history = JSON.parse(localStorage.getItem('gco_history') || '[]'); } catch { history = []; }
+  const key = localStorage.getItem('gco_apikey');
+  if (key) document.getElementById('apiKeyInput').value = key;
+  renderAll(); updateFilters();
+}
+
+function save() { localStorage.setItem('gco_items', JSON.stringify(items)); }
+function saveHistory() { localStorage.setItem('gco_history', JSON.stringify(history)); }
+
+// ── AI PARSING ──
+async function parseWithClaude(text) {
+  const key = localStorage.getItem('gco_apikey');
+  if (!key) return null;
+  const prompt = `You are a grocery list parser. The user said: "${text}"
+Extract ALL grocery items mentioned (even implied ones). Return ONLY valid JSON — an array of objects.
+Each object: { "name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,frozen,drinks,snacks,household], "recipe": string|null, "note": string|null }
+- "recipe": if user mentions a dish/meal/goal, put it here (e.g. "pasta carbonara", "smoothies", "taco night")
+- "qty": quantity string if mentioned (e.g. "2 lbs", "1 dozen", "a bunch")
+- "note": any other relevant detail
+- Infer reasonable categories
+- If user says "stuff for X" infer 2-4 typical ingredients
+Return ONLY the JSON array, no markdown, no explanation.`;
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!resp.ok) throw new Error('API error ' + resp.status);
+  const data = await resp.json();
+  const raw = data.content.map(b => b.text || '').join('').trim();
+  const clean = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function parseOffline(text) {
+  const recipePatterns = [
+    /\bfor (?:my |the |a |our )?(.+?)(?:\s+recipe|\s+dish|\s+meal|\s+tonight|\s+tomorrow)?$/i,
+    /\bto make (?:my |the |a )?(.+?)(?:\s+recipe)?$/i,
+    /\b(?:making|cooking|preparing|baking) (?:my |the |a )?(.+?)$/i,
+  ];
+  let recipe = null, name = text.trim();
+  for (const p of recipePatterns) { const m = name.match(p); if (m) { recipe = m[1].replace(/recipe|dish|meal/gi,'').trim(); name = name.replace(p,'').trim(); break; } }
+  const qm = name.match(/^(\d+(?:[\.\d]*)?)\s*(?:x\s+|lbs?\.?\s+|oz\.?\s+|kg\s+|g\s+|cups?\s+|tbsp\.?\s+|tsp\.?\s+|pints?\s+|quarts?\s+|gallons?\s+|bags?\s+|boxes?\s+|cans?\s+|bottles?\s+|jars?\s+|packs?\s+|bunches?\s+|dozen\s+|cloves?\s+|slices?\s+|heads?\s+|stalks?\s+)?(.+)/i);
+  let qty = null;
+  if (qm) { qty = qm[0].replace(qm[qm.length-1],'').trim() || null; name = qm[qm.length-1].trim(); }
+  name = name.replace(/^(?:some|a|an|the|my)\s+/i,'');
+  name = name.charAt(0).toUpperCase() + name.slice(1);
+  return [{ name, qty, category: categorize(name), recipe, note: null }];
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  if (!msg) { el.innerHTML = ''; return; }
+  el.innerHTML = `<span class="status-msg ${type}">${msg}</span>`;
+}
+
+async function handleAdd() {
+  const input = document.getElementById('mainInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  await parseAndAdd(text);
+}
+
+// ── VOICE ──
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    setStatus('Voice not supported — use Chrome or Safari', 'error');
+    setTimeout(() => setStatus('',''), 3000); return;
+  }
+  if (isRecording) { recognition.stop(); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = false; recognition.interimResults = true; recognition.lang = 'en-US';
+  const mic = document.getElementById('micBtn');
+  let finalTranscript = '';
+  recognition.onstart = () => { isRecording = true; mic.classList.add('recording'); setStatus('Listening…', 'voice'); };
+  recognition.onresult = e => {
+    let interim = '';
+    finalTranscript = '';
+    for (const result of e.results) {
+      if (result.isFinal) finalTranscript += result[0].transcript;
+      else interim += result[0].transcript;
+    }
+    setStatus(`"${finalTranscript || interim}"`, 'voice');
+  };
+  recognition.onend = async () => {
+    isRecording = false; mic.classList.remove('recording');
+    const text = finalTranscript.trim();
+    if (!text) { setStatus('', ''); return; }
+    // Auto-parse and add — no manual tap needed
+    document.getElementById('mainInput').value = '';
+    await parseAndAdd(text);
+  };
+  recognition.onerror = () => { isRecording = false; mic.classList.remove('recording'); setStatus('Voice error — try again', 'error'); setTimeout(()=>setStatus('',''),2500); };
+  recognition.start();
+}
+
+async function parseAndAdd(text) {
+  const btn = document.getElementById('addBtn');
+  btn.classList.add('loading'); btn.textContent = '…';
+  let parsed;
+  const hasKey = !!localStorage.getItem('gco_apikey');
+  if (hasKey) {
+    setStatus('<span class="dot-anim">Parsing</span>', 'thinking');
+    try { parsed = await parseWithClaude(text); }
+    catch(e) { setStatus('Claude unavailable — using offline mode', 'error'); parsed = null; setTimeout(() => setStatus('',''), 2500); }
+  }
+  if (!parsed) parsed = parseOffline(text);
+  const added = [];
+  parsed.forEach(p => {
+    if (!p.name || p.name.length < 1) return;
+    items.unshift({ id: Date.now() + Math.random(), name: p.name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: p.category || categorize(p.name), checked: false, addedAt: new Date().toISOString() });
+    added.push(p.name);
+  });
+  save();
+  btn.classList.remove('loading'); btn.textContent = 'Add';
+  if (added.length > 0) {
+    setStatus(`Added: ${added.join(', ')}`, 'thinking');
+    setTimeout(() => setStatus('', ''), 3000);
+  } else {
+    setStatus('', '');
+  }
+  renderAll(); updateFilters(); updateCount();
+}
+
+document.getElementById('mainInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleAdd(); });
+
+// ── CHECK / DELETE ──
+function toggleCheck(id) {
+  const item = items.find(i => i.id == id);
+  if (!item) return;
+  item.checked = !item.checked;
+  if (item.checked) { history.unshift({ ...item, boughtAt: new Date().toISOString() }); saveHistory(); }
+  save(); renderAll(); updateCount();
+}
+function deleteItem(id) { items = items.filter(i => i.id != id); save(); renderAll(); updateFilters(); updateCount(); }
+function clearChecked() { items = items.filter(i => !i.checked); save(); renderAll(); updateCount(); }
+function clearHistory() { history = []; saveHistory(); renderHistory(); }
+function restoreItem(boughtAt) {
+  const h = history.find(i => i.boughtAt === boughtAt);
+  if (!h) return;
+  items.unshift({ id: Date.now(), name: h.name, qty: h.qty, recipe: h.recipe, note: h.note, category: h.category, checked: false, addedAt: new Date().toISOString() });
+  save(); renderAll(); updateFilters(); updateCount();
+  switchTab('list');
+}
+
+// ── FILTER ──
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderList();
+}
+function updateFilters() {
+  const recipes = [...new Set(items.filter(i => i.recipe).map(i => i.recipe))];
+  const bar = document.getElementById('filterBar');
+  bar.innerHTML = `<button class="filter-chip ${activeFilter==='all'?'active':''}" onclick="setFilter('all',this)">All</button>`;
+  recipes.forEach(r => {
+    const chip = document.createElement('button');
+    chip.className = `filter-chip${activeFilter===r?' active':''}`;
+    chip.textContent = r; chip.title = r;
+    chip.onclick = function() { setFilter(r, this); };
+    bar.appendChild(chip);
+  });
+}
+
+// ── RENDER ──
+function updateCount() {
+  const unc = items.filter(i => !i.checked).length;
+  document.getElementById('itemCount').textContent = unc === 0 ? 'empty' : `${unc} item${unc!==1?'s':''}`;
+}
+
+function renderAll() { renderList(); renderHistory(); updateCount(); }
+
+function renderList() {
+  const container = document.getElementById('groceryList');
+  let filtered = activeFilter === 'all' ? items : items.filter(i => i.recipe === activeFilter);
+  const unchecked = filtered.filter(i => !i.checked);
+  const checked = filtered.filter(i => i.checked);
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">🛒</div><div class="empty-title">Your list is empty</div><div class="empty-sub">Type an item, mention a recipe,<br>or tap the mic to speak</div></div>`;
+    return;
+  }
+  const grouped = {};
+  unchecked.forEach(item => { if (!grouped[item.category]) grouped[item.category] = []; grouped[item.category].push(item); });
+  let html = '';
+  const catOrder = ['produce','meat','dairy','bakery','pantry','frozen','drinks','snacks','household'];
+  const orderedCats = [...catOrder.filter(c => grouped[c]), ...Object.keys(grouped).filter(c => !catOrder.includes(c))];
+  orderedCats.forEach(cat => {
+    const info = CATS[cat] || { label: cat, icon: '•' };
+    const catItems = grouped[cat];
+    html += `<div class="section"><div class="section-head"><span class="section-label">${info.icon} ${info.label}</span><span class="section-count">${catItems.length}</span></div>`;
+    catItems.forEach(item => { html += itemCard(item); });
+    html += `</div>`;
+  });
+  if (checked.length > 0) {
+    html += `<div class="section"><div class="section-head"><span class="section-label">✓ In cart</span><button class="clear-link" onclick="clearChecked()">Remove all</button></div>`;
+    checked.forEach(item => { html += itemCard(item); });
+    html += `</div>`;
+  }
+  html += `<div style="height:20px;"></div>`;
+  container.innerHTML = html;
+}
+
+function itemCard(item) {
+  const checked = item.checked;
+  return `<div class="item-card${checked?' checked':''}" id="ic${item.id}">
+    <div class="check-circle${checked?' done':''}" onclick="toggleCheck(${item.id})">
+      <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5l3.5 3.5L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="item-body">
+      <div class="item-name">${esc(item.name)}</div>
+      ${(item.qty||item.recipe||item.note)?`<div class="item-sub">${item.qty?`<span class="qty-pill">${esc(item.qty)}</span>`:''}${item.recipe?`<span class="recipe-pill">🍽 ${esc(item.recipe)}</span>`:''}${item.note?`<span class="note-pill">${esc(item.note)}</span>`:''}
+      </div>`:''}
+    </div>
+    <button class="del-btn" onclick="deleteItem(${item.id})">×</button>
+  </div>`;
+}
+
+function renderHistory() {
+  const container = document.getElementById('historyList');
+  if (history.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">No history yet</div><div class="empty-sub">Items you check off will appear here</div></div>`;
+    return;
+  }
+  const grouped = {};
+  history.forEach(h => {
+    const d = new Date(h.boughtAt).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    if (!grouped[d]) grouped[d] = [];
+    grouped[d].push(h);
+  });
+  let html = '';
+  for (const [date, hItems] of Object.entries(grouped)) {
+    html += `<div style="font-size:11px;letter-spacing:0.8px;text-transform:uppercase;color:var(--hint);font-weight:600;margin:16px 0 8px;">${date}</div>`;
+    hItems.forEach(h => {
+      const cat = CATS[h.category]?.label || '';
+      html += `<div class="hist-item">
+        <div>
+          <div class="hist-name">${esc(h.name)}</div>
+          <div class="hist-meta">${cat}${h.recipe?' · '+esc(h.recipe):''}</div>
+        </div>
+        <button class="readd-btn" onclick="restoreItem('${h.boughtAt}')">+ Add again</button>
+      </div>`;
+    });
+  }
+  container.innerHTML = html;
+}
+
+function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── TABS ──
+function switchTab(t) {
+  currentTab = t;
+  ['list','history','settings'].forEach(id => {
+    document.getElementById('tab-'+id).style.display = id===t ? (id==='list'?'flex':'block') : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['list','history','settings'][i]===t));
+}
+
+// ── SETTINGS ──
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) { localStorage.setItem('gco_apikey', key); alert('✓ API key saved. Claude AI parsing is now active.'); }
+  else { localStorage.removeItem('gco_apikey'); alert('API key cleared. Using offline keyword parsing.'); }
+}
+function nukeData() {
+  if (!confirm('Delete all grocery data? This cannot be undone.')) return;
+  localStorage.removeItem('gco_items'); localStorage.removeItem('gco_history');
+  items = []; history = [];
+  renderAll(); updateFilters(); updateCount();
+  switchTab('list');
+}
+
+load();
+</script>
+</body>
+</html>
