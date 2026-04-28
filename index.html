@@ -373,26 +373,8 @@ async function handleAdd() {
   const input = document.getElementById('mainInput');
   const text = input.value.trim();
   if (!text) return;
-  const btn = document.getElementById('addBtn');
-  btn.classList.add('loading'); btn.textContent = '…';
-  let parsed;
-  const hasKey = !!localStorage.getItem('gco_apikey');
-  if (hasKey) {
-    setStatus('<span class="dot-anim">Thinking</span>', 'thinking');
-    try { parsed = await parseWithClaude(text); }
-    catch(e) { setStatus('Claude unavailable — using offline mode', 'error'); parsed = null; setTimeout(() => setStatus('',''), 2500); }
-  }
-  if (!parsed) parsed = parseOffline(text);
-  parsed.forEach(p => {
-    if (!p.name || p.name.length < 1) return;
-    items.unshift({ id: Date.now() + Math.random(), name: p.name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: p.category || categorize(p.name), checked: false, addedAt: new Date().toISOString() });
-  });
-  save();
   input.value = '';
-  btn.classList.remove('loading'); btn.textContent = 'Add';
-  setStatus('', '');
-  renderAll(); updateFilters();
-  updateCount();
+  await parseAndAdd(text);
 }
 
 // ── VOICE ──
@@ -406,11 +388,55 @@ function toggleVoice() {
   recognition = new SR();
   recognition.continuous = false; recognition.interimResults = true; recognition.lang = 'en-US';
   const mic = document.getElementById('micBtn');
+  let finalTranscript = '';
   recognition.onstart = () => { isRecording = true; mic.classList.add('recording'); setStatus('Listening…', 'voice'); };
-  recognition.onresult = e => { const t = Array.from(e.results).map(r => r[0].transcript).join(''); document.getElementById('mainInput').value = t; setStatus(`"${t}"`, 'voice'); };
-  recognition.onend = () => { isRecording = false; mic.classList.remove('recording'); const v = document.getElementById('mainInput').value.trim(); if (v) setStatus('Tap Add to confirm ↑', 'thinking'); else setStatus('',''); };
+  recognition.onresult = e => {
+    let interim = '';
+    finalTranscript = '';
+    for (const result of e.results) {
+      if (result.isFinal) finalTranscript += result[0].transcript;
+      else interim += result[0].transcript;
+    }
+    setStatus(`"${finalTranscript || interim}"`, 'voice');
+  };
+  recognition.onend = async () => {
+    isRecording = false; mic.classList.remove('recording');
+    const text = finalTranscript.trim();
+    if (!text) { setStatus('', ''); return; }
+    // Auto-parse and add — no manual tap needed
+    document.getElementById('mainInput').value = '';
+    await parseAndAdd(text);
+  };
   recognition.onerror = () => { isRecording = false; mic.classList.remove('recording'); setStatus('Voice error — try again', 'error'); setTimeout(()=>setStatus('',''),2500); };
   recognition.start();
+}
+
+async function parseAndAdd(text) {
+  const btn = document.getElementById('addBtn');
+  btn.classList.add('loading'); btn.textContent = '…';
+  let parsed;
+  const hasKey = !!localStorage.getItem('gco_apikey');
+  if (hasKey) {
+    setStatus('<span class="dot-anim">Parsing</span>', 'thinking');
+    try { parsed = await parseWithClaude(text); }
+    catch(e) { setStatus('Claude unavailable — using offline mode', 'error'); parsed = null; setTimeout(() => setStatus('',''), 2500); }
+  }
+  if (!parsed) parsed = parseOffline(text);
+  const added = [];
+  parsed.forEach(p => {
+    if (!p.name || p.name.length < 1) return;
+    items.unshift({ id: Date.now() + Math.random(), name: p.name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: p.category || categorize(p.name), checked: false, addedAt: new Date().toISOString() });
+    added.push(p.name);
+  });
+  save();
+  btn.classList.remove('loading'); btn.textContent = 'Add';
+  if (added.length > 0) {
+    setStatus(`Added: ${added.join(', ')}`, 'thinking');
+    setTimeout(() => setStatus('', ''), 3000);
+  } else {
+    setStatus('', '');
+  }
+  renderAll(); updateFilters(); updateCount();
 }
 
 document.getElementById('mainInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleAdd(); });
