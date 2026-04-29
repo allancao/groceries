@@ -340,9 +340,14 @@ Return ONLY the JSON array, no markdown, no explanation.`;
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
   });
-  if (!resp.ok) throw new Error('API error ' + resp.status);
+  if (!resp.ok) {
+    const errBody = await resp.text();
+    throw new Error(`API ${resp.status}: ${errBody}`);
+  }
   const data = await resp.json();
+  console.log('Claude raw response:', data);
   const raw = data.content.map(b => b.text || '').join('').trim();
+  console.log('Claude text:', raw);
   const clean = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
@@ -388,22 +393,22 @@ function toggleVoice() {
   recognition = new SR();
   recognition.continuous = false; recognition.interimResults = true; recognition.lang = 'en-US';
   const mic = document.getElementById('micBtn');
-  let finalTranscript = '';
+  let bestTranscript = '';
   recognition.onstart = () => { isRecording = true; mic.classList.add('recording'); setStatus('Listening…', 'voice'); };
   recognition.onresult = e => {
-    let interim = '';
-    finalTranscript = '';
+    // Always capture the best available transcript from ALL results
+    let full = '';
     for (const result of e.results) {
-      if (result.isFinal) finalTranscript += result[0].transcript;
-      else interim += result[0].transcript;
+      full += result[0].transcript;
     }
-    setStatus(`"${finalTranscript || interim}"`, 'voice');
+    bestTranscript = full;
+    setStatus(`"${full}"`, 'voice');
   };
   recognition.onend = async () => {
     isRecording = false; mic.classList.remove('recording');
-    const text = finalTranscript.trim();
+    const text = bestTranscript.trim();
+    bestTranscript = '';
     if (!text) { setStatus('', ''); return; }
-    // Auto-parse and add — no manual tap needed
     document.getElementById('mainInput').value = '';
     await parseAndAdd(text);
   };
@@ -414,12 +419,17 @@ function toggleVoice() {
 async function parseAndAdd(text) {
   const btn = document.getElementById('addBtn');
   btn.classList.add('loading'); btn.textContent = '…';
-  let parsed;
+  let parsed = null;
   const hasKey = !!localStorage.getItem('gco_apikey');
   if (hasKey) {
     setStatus('<span class="dot-anim">Parsing</span>', 'thinking');
-    try { parsed = await parseWithClaude(text); }
-    catch(e) { setStatus('Claude unavailable — using offline mode', 'error'); parsed = null; setTimeout(() => setStatus('',''), 2500); }
+    try {
+      parsed = await parseWithClaude(text);
+    } catch(e) {
+      console.error('Claude parse error:', e);
+      setStatus('⚠ Parse error: ' + e.message, 'error');
+      setTimeout(() => setStatus('',''), 4000);
+    }
   }
   if (!parsed) parsed = parseOffline(text);
   const added = [];
@@ -431,7 +441,7 @@ async function parseAndAdd(text) {
   save();
   btn.classList.remove('loading'); btn.textContent = 'Add';
   if (added.length > 0) {
-    setStatus(`Added: ${added.join(', ')}`, 'thinking');
+    setStatus(`✓ Added: ${added.join(', ')}`, 'thinking');
     setTimeout(() => setStatus('', ''), 3000);
   } else {
     setStatus('', '');
