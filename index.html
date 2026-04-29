@@ -115,6 +115,18 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .add-btn:active { transform: scale(0.96); opacity: 0.9; }
 .add-btn.loading { opacity: 0.6; pointer-events: none; }
 
+.cat-select {
+  height: 44px; border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border2); background: var(--surface2);
+  color: var(--text); font-size: 13px; font-family: var(--font-ui); font-weight: 500;
+  outline: none; cursor: pointer; flex-shrink: 0;
+  padding: 0 8px; -webkit-appearance: none; appearance: none;
+  text-align: center; text-align-last: center; width: 118px;
+  transition: border-color 0.15s;
+}
+.cat-select:focus { border-color: var(--accent); }
+.cat-select.auto-set { border-color: var(--accent); background: var(--accent-light); }
+
 .status-row { margin-top: 8px; min-height: 20px; }
 .status-msg { font-size: 12px; padding: 6px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; }
 .status-msg.thinking { background: var(--accent-light); color: var(--accent); }
@@ -230,7 +242,18 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     </div>
     <div class="input-wrap">
       <div class="input-row">
-        <input class="main-input" id="mainInput" type="text" placeholder="Type or speak an item…" autocomplete="off" autocorrect="off" />
+        <input class="main-input" id="mainInput" type="text" placeholder="Type or speak an item…" autocomplete="off" autocorrect="off" oninput="onManualInput()" />
+        <select class="cat-select" id="catSelect" title="Category">
+          <option value="auto">✨ Auto</option>
+          <option value="produce">🥦 Produce</option>
+          <option value="meat">🥩 Meat</option>
+          <option value="dairy">🥛 Dairy</option>
+          <option value="bakery">🍞 Bakery</option>
+          <option value="pantry">🫙 Pantry</option>
+          <option value="drinks">🧃 Drinks</option>
+          <option value="snacks">🍿 Snacks</option>
+          <option value="household">🧴 Household</option>
+        </select>
         <button class="mic-btn" id="micBtn" onclick="toggleVoice()">🎤</button>
         <button class="add-btn" id="addBtn" onclick="handleAdd()">Add</button>
       </div>
@@ -264,7 +287,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="settings-hint">
             Your key is stored only on this device (localStorage). Get one at
             <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
-            Without a key, the app uses keyword-based parsing (still works offline).
+            A key is required — without one, only manual text entry works.
           </div>
         </div>
         <div class="settings-section">
@@ -293,7 +316,6 @@ const CATS = {
   dairy:     { label:'Dairy & Eggs',    icon:'🥛', kw:['milk','cheese','butter','yogurt','cream','egg','sour cream','cream cheese','cottage cheese','mozzarella','cheddar','parmesan','brie','feta','ricotta','whipped cream','half and half','heavy cream','oat milk','almond milk','soy milk','coconut milk','gouda','provolone','swiss','gruyere','manchego','mascarpone','kefir','ghee','queso'] },
   bakery:    { label:'Bakery & Bread',  icon:'🍞', kw:['bread','bagel','muffin','croissant','roll','tortilla','pita','naan','baguette','sourdough','rye','focaccia','english muffin','pancake','waffle mix','biscuit','cracker','pretzel','brioche','challah','ciabatta','wrap','flatbread'] },
   pantry:    { label:'Pantry',          icon:'🫙', kw:['pasta','rice','flour','sugar','salt','pepper','oil','vinegar','soy sauce','sauce','soup','broth','stock','can','bean','lentil','chickpea','quinoa','oat','oatmeal','cereal','granola','honey','syrup','peanut butter','almond butter','jam','jelly','ketchup','mustard','mayo','mayonnaise','dressing','hot sauce','worcestershire','balsamic','olive oil','vegetable oil','coconut oil','baking powder','baking soda','vanilla','chocolate','cocoa','spice','seasoning','curry','cumin','paprika','cinnamon','turmeric','chili','bay leaf','thyme','rosemary','oregano','tomato paste','salsa','taco','noodle','ramen','couscous','farro','barley','polenta','cornmeal','breadcrumb','panko','nutritional yeast','miso','tahini','fish sauce','oyster sauce','hoisin','sriracha','tabasco','capers','artichoke heart','sundried tomato','roasted pepper'] },
-  frozen:    { label:'Frozen',          icon:'🧊', kw:['frozen','ice cream','popsicle','pizza','burrito','edamame','pea','fry','waffle','ice','sorbet','gelato','frozen yogurt','frozen fruit','frozen vegetable'] },
   drinks:    { label:'Drinks',          icon:'🧃', kw:['water','juice','soda','beer','wine','coffee','tea','sparkling','kombucha','lemonade','energy drink','sports drink','cocoa','hot chocolate','cider','spirits','whiskey','vodka','gin','rum','tequila','prosecco','champagne','sake','cold brew'] },
   snacks:    { label:'Snacks',          icon:'🍿', kw:['chip','popcorn','nut','almond','walnut','cashew','pistachio','pecan','trail mix','cookie','snack bar','granola bar','jerky','dried fruit','candy','chocolate bar','gummy','pretzel','rice cake','hummus','guacamole','cracker','pita chip','tortilla chip'] },
   household: { label:'Household',       icon:'🧴', kw:['soap','shampoo','conditioner','toothpaste','deodorant','toilet paper','paper towel','dish soap','laundry','detergent','sponge','trash bag','zip lock','aluminum foil','plastic wrap','bleach','cleaner','disinfectant','lotion','razor','floss','mouthwash','sunscreen','hand sanitizer','dryer sheet','fabric softener','light bulb','battery','candle'] },
@@ -344,7 +366,7 @@ Examples:
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
   });
   if (!resp.ok) {
     const errBody = await resp.text();
@@ -355,29 +377,15 @@ Examples:
   const raw = data.content.map(b => b.text || '').join('').trim();
   console.log('Claude text:', raw);
   const clean = raw.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
-}
-
-function parseOffline(text) {
-  // Strip common voice command filler
-  let cleaned = text
-    .replace(/^(please\s+)?(can you\s+)?(could you\s+)?(i need\s+)?(add|put|include|get|grab|buy|pick up|i want)\s+/i, '')
-    .replace(/\s+(to (my |the |our )?(grocery |shopping )?list|from the store|at the store|when you('re| are) out)\.?$/i, '')
-    .trim();
-
-  const recipePatterns = [
-    /\bfor (?:my |the |a |our )?(.+?)(?:\s+recipe|\s+dish|\s+meal|\s+tonight|\s+tomorrow)?$/i,
-    /\bto make (?:my |the |a )?(.+?)(?:\s+recipe)?$/i,
-    /\b(?:making|cooking|preparing|baking) (?:my |the |a )?(.+?)$/i,
-  ];
-  let recipe = null, name = cleaned;
-  for (const p of recipePatterns) { const m = name.match(p); if (m) { recipe = m[1].replace(/recipe|dish|meal/gi,'').trim(); name = name.replace(p,'').trim(); break; } }
-  const qm = name.match(/^(\d+(?:[\.\d]*)?)\s*(?:x\s+|lbs?\.?\s+|oz\.?\s+|kg\s+|g\s+|cups?\s+|tbsp\.?\s+|tsp\.?\s+|pints?\s+|quarts?\s+|gallons?\s+|bags?\s+|boxes?\s+|cans?\s+|bottles?\s+|jars?\s+|packs?\s+|bunches?\s+|dozen\s+|cloves?\s+|slices?\s+|heads?\s+|stalks?\s+)?(.+)/i);
-  let qty = null;
-  if (qm) { qty = qm[0].replace(qm[qm.length-1],'').trim() || null; name = qm[qm.length-1].trim(); }
-  name = name.replace(/^(?:some|a|an|the|my)\s+/i,'');
-  name = name.charAt(0).toUpperCase() + name.slice(1);
-  return [{ name, qty, category: categorize(name), recipe, note: null }];
+  const parsed = JSON.parse(clean);
+  // Safety net: if Claude returned 1 item whose name still contains " and " or commas, warn and return anyway
+  if (Array.isArray(parsed) && parsed.length === 1) {
+    const name = (parsed[0].name || '').toLowerCase();
+    if (/\band\b|,/.test(name)) {
+      console.warn('Claude did not split items correctly:', parsed[0].name);
+    }
+  }
+  return parsed;
 }
 
 function setStatus(msg, type) {
@@ -386,12 +394,48 @@ function setStatus(msg, type) {
   el.innerHTML = `<span class="status-msg ${type}">${msg}</span>`;
 }
 
+function getCatSelect() { return document.getElementById('catSelect'); }
+
+function resetCatSelect() {
+  const sel = getCatSelect();
+  sel.value = 'auto';
+  sel.classList.remove('auto-set');
+}
+
+function setCatAuto(cat) {
+  const sel = getCatSelect();
+  sel.value = cat;
+  sel.classList.add('auto-set');
+}
+
+// When user types manually, auto-suggest category based on keyword matching
+function onManualInput() {
+  const text = document.getElementById('mainInput').value.trim();
+  const sel = getCatSelect();
+  if (!text) { resetCatSelect(); return; }
+  const guessed = categorize(text);
+  // Only update if still on auto or a previously auto-set value
+  sel.value = guessed;
+  sel.classList.add('auto-set');
+}
+
+// When user manually changes the dropdown, lock it (remove auto-set styling to show it's manual)
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('catSelect').addEventListener('change', function() {
+    if (this.value === 'auto') { this.classList.remove('auto-set'); }
+    else { this.classList.remove('auto-set'); } // manual override — no highlight
+  });
+});
+
 async function handleAdd() {
   const input = document.getElementById('mainInput');
   const text = input.value.trim();
   if (!text) return;
+  const sel = getCatSelect();
+  const manualCat = (sel.value && sel.value !== 'auto') ? sel.value : null;
   input.value = '';
-  await parseAndAdd(text);
+  resetCatSelect();
+  await parseAndAdd(text, manualCat);
 }
 
 // ── VOICE ──
@@ -422,33 +466,46 @@ function toggleVoice() {
     bestTranscript = '';
     if (!text) { setStatus('', ''); return; }
     setStatus('Processing…', 'thinking');
+    resetCatSelect();
     // Defer to let iOS Safari resume network after speech recognition ends
-    setTimeout(() => parseAndAdd(text), 300);
+    setTimeout(() => parseAndAdd(text, null), 300);
   };
   recognition.onerror = () => { isRecording = false; mic.classList.remove('recording'); setStatus('Voice error — try again', 'error'); setTimeout(()=>setStatus('',''),2500); };
   recognition.start();
 }
 
-async function parseAndAdd(text) {
+async function parseAndAdd(text, manualCat = null) {
   const btn = document.getElementById('addBtn');
   btn.classList.add('loading'); btn.textContent = '…';
   let parsed = null;
   const hasKey = !!localStorage.getItem('gco_apikey');
-  if (hasKey) {
-    setStatus('<span class="dot-anim">Parsing</span>', 'thinking');
-    try {
-      parsed = await parseWithClaude(text);
-    } catch(e) {
-      console.error('Claude parse error:', e);
-      setStatus('⚠ Parse error: ' + e.message, 'error');
-      setTimeout(() => setStatus('',''), 4000);
-    }
+  if (!hasKey) {
+    setStatus('⚠ No API key — enter it in Settings to use parsing', 'error');
+    setTimeout(() => setStatus('',''), 4000);
+    btn.classList.remove('loading'); btn.textContent = 'Add';
+    return;
   }
-  if (!parsed) parsed = parseOffline(text);
+  setStatus('<span class="dot-anim">Parsing</span>', 'thinking');
+  try {
+    parsed = await parseWithClaude(text);
+  } catch(e) {
+    console.error('Claude parse error:', e);
+    setStatus('⚠ ' + e.message, 'error');
+    setTimeout(() => setStatus('',''), 5000);
+    btn.classList.remove('loading'); btn.textContent = 'Add';
+    return;
+  }
+  if (!parsed || parsed.length === 0) {
+    setStatus('⚠ Could not parse items — try rephrasing', 'error');
+    setTimeout(() => setStatus('',''), 4000);
+    btn.classList.remove('loading'); btn.textContent = 'Add';
+    return;
+  }
   const added = [];
   parsed.forEach(p => {
     if (!p.name || p.name.length < 1) return;
-    items.unshift({ id: Date.now() + Math.random(), name: p.name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: p.category || categorize(p.name), checked: false, addedAt: new Date().toISOString() });
+    const cat = manualCat || p.category || categorize(p.name);
+    items.unshift({ id: Date.now() + Math.random(), name: p.name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: cat, checked: false, addedAt: new Date().toISOString() });
     added.push(p.name);
   });
   save();
@@ -523,7 +580,7 @@ function renderList() {
   const grouped = {};
   unchecked.forEach(item => { if (!grouped[item.category]) grouped[item.category] = []; grouped[item.category].push(item); });
   let html = '';
-  const catOrder = ['produce','meat','dairy','bakery','pantry','frozen','drinks','snacks','household'];
+  const catOrder = ['produce','meat','dairy','bakery','pantry','drinks','snacks','household'];
   const orderedCats = [...catOrder.filter(c => grouped[c]), ...Object.keys(grouped).filter(c => !catOrder.includes(c))];
   orderedCats.forEach(cat => {
     const info = CATS[cat] || { label: cat, icon: '•' };
