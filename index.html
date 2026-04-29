@@ -353,12 +353,18 @@ Return ONLY the JSON array, no markdown, no explanation.`;
 }
 
 function parseOffline(text) {
+  // Strip common voice command filler
+  let cleaned = text
+    .replace(/^(please\s+)?(can you\s+)?(could you\s+)?(i need\s+)?(add|put|include|get|grab|buy|pick up|i want)\s+/i, '')
+    .replace(/\s+(to (my |the |our )?(grocery |shopping )?list|from the store|at the store|when you('re| are) out)\.?$/i, '')
+    .trim();
+
   const recipePatterns = [
     /\bfor (?:my |the |a |our )?(.+?)(?:\s+recipe|\s+dish|\s+meal|\s+tonight|\s+tomorrow)?$/i,
     /\bto make (?:my |the |a )?(.+?)(?:\s+recipe)?$/i,
     /\b(?:making|cooking|preparing|baking) (?:my |the |a )?(.+?)$/i,
   ];
-  let recipe = null, name = text.trim();
+  let recipe = null, name = cleaned;
   for (const p of recipePatterns) { const m = name.match(p); if (m) { recipe = m[1].replace(/recipe|dish|meal/gi,'').trim(); name = name.replace(p,'').trim(); break; } }
   const qm = name.match(/^(\d+(?:[\.\d]*)?)\s*(?:x\s+|lbs?\.?\s+|oz\.?\s+|kg\s+|g\s+|cups?\s+|tbsp\.?\s+|tsp\.?\s+|pints?\s+|quarts?\s+|gallons?\s+|bags?\s+|boxes?\s+|cans?\s+|bottles?\s+|jars?\s+|packs?\s+|bunches?\s+|dozen\s+|cloves?\s+|slices?\s+|heads?\s+|stalks?\s+)?(.+)/i);
   let qty = null;
@@ -404,13 +410,14 @@ function toggleVoice() {
     bestTranscript = full;
     setStatus(`"${full}"`, 'voice');
   };
-  recognition.onend = async () => {
+  recognition.onend = () => {
     isRecording = false; mic.classList.remove('recording');
     const text = bestTranscript.trim();
     bestTranscript = '';
     if (!text) { setStatus('', ''); return; }
-    document.getElementById('mainInput').value = '';
-    await parseAndAdd(text);
+    setStatus('Processing…', 'thinking');
+    // Defer to let iOS Safari resume network after speech recognition ends
+    setTimeout(() => parseAndAdd(text), 300);
   };
   recognition.onerror = () => { isRecording = false; mic.classList.remove('recording'); setStatus('Voice error — try again', 'error'); setTimeout(()=>setStatus('',''),2500); };
   recognition.start();
