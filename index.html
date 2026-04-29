@@ -327,14 +327,20 @@ async function parseWithClaude(text) {
   const key = localStorage.getItem('gco_apikey');
   if (!key) return null;
   const prompt = `You are a grocery list parser. The user said: "${text}"
-Extract ALL grocery items mentioned (even implied ones). Return ONLY valid JSON — an array of objects.
+
+CRITICAL RULES:
+1. Every distinct grocery item MUST be its own separate object in the array. NEVER combine multiple items into one.
+2. "chicken thighs and milk" = TWO objects: one for chicken thighs, one for milk.
+3. Ignore filler words like "I need to add", "also", "please", "can you add", "to my list" etc.
+4. If user mentions a dish/meal/goal (e.g. "for taco night", "to make carbonara"), set "recipe" on each extracted item.
+5. If user says "stuff for X" or "ingredients for X", infer 3-5 typical ingredients as separate objects.
+
+Return ONLY a valid JSON array of objects, no markdown, no explanation.
 Each object: { "name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,frozen,drinks,snacks,household], "recipe": string|null, "note": string|null }
-- "recipe": if user mentions a dish/meal/goal, put it here (e.g. "pasta carbonara", "smoothies", "taco night")
-- "qty": quantity string if mentioned (e.g. "2 lbs", "1 dozen", "a bunch")
-- "note": any other relevant detail
-- Infer reasonable categories
-- If user says "stuff for X" infer 2-4 typical ingredients
-Return ONLY the JSON array, no markdown, no explanation.`;
+
+Examples:
+"add chicken thighs and milk" → [{"name":"Chicken thighs","qty":null,"category":"meat","recipe":null,"note":null},{"name":"Milk","qty":null,"category":"dairy","recipe":null,"note":null}]
+"2 lbs salmon and some spinach for my salad" → [{"name":"Salmon","qty":"2 lbs","category":"meat","recipe":"salad","note":null},{"name":"Spinach","qty":null,"category":"produce","recipe":"salad","note":null}]`;
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
