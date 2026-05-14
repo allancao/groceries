@@ -621,6 +621,23 @@ async function fetchPageHtml(rawUrl) {
     , 15000);
   } catch {}
 
+  // 5. thingproxy
+  try {
+    return await timed(sig =>
+      fetch(`https://thingproxy.freeboard.io/fetch/${url}`, { signal: sig })
+        .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    , 15000);
+  } catch {}
+
+  // 6. whateverorigin
+  try {
+    return await timed(sig =>
+      fetch(`https://whateverorigin.org/get?url=${encodeURIComponent(url)}`, { signal: sig })
+        .then(r => r.json())
+        .then(d => { if (!d.contents || d.contents.length < 500) throw new Error(); return d.contents; })
+    , 15000);
+  } catch {}
+
   throw new Error('Could not fetch — try pasting the ingredient list directly');
 }
 
@@ -671,6 +688,10 @@ async function parseRecipeUrl(url) {
   if (!hasKey) {
     setStatus('⚠ No API key — enter it in Settings', 'error');
     setTimeout(() => setStatus('', ''), 4000); return;
+  }
+  if (window.location.protocol === 'file:') {
+    setStatus('⚠ Open the app via a web server — Safari blocks network requests from local files', 'error');
+    setTimeout(() => setStatus('', ''), 8000); return;
   }
   const btn = document.getElementById('addBtn');
   btn.classList.add('loading'); btn.textContent = '…';
