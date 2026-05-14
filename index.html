@@ -50,82 +50,45 @@
     --tag-border: #4a3510;
     --shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
-  meta[name="theme-color"] { content: #1a1918; }
 }
 
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); overscroll-behavior: none; }
-
 #app { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; position: relative; }
 
-/* ── HEADER ── */
-.header {
-  flex-shrink: 0;
-  padding: env(safe-area-inset-top, 12px) 16px 0;
-  background: var(--bg);
-  border-bottom: 0.5px solid var(--border);
-  z-index: 50;
-}
+.header { flex-shrink: 0; padding: env(safe-area-inset-top, 12px) 16px 0; background: var(--bg); border-bottom: 0.5px solid var(--border); z-index: 50; }
 .header-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 10px; }
 .app-title { font-family: var(--font); font-size: 24px; font-weight: normal; letter-spacing: -0.5px; color: var(--text); }
 .app-title em { color: var(--accent); font-style: normal; }
 .item-count { font-size: 12px; color: var(--hint); background: var(--surface2); padding: 4px 10px; border-radius: 20px; font-family: var(--font-ui); }
 
-.tabs { display: flex; gap: 0; border-bottom: none; margin: 0 -16px; }
+.tabs { display: flex; gap: 0; margin: 0 -16px; }
 .tab { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 500; color: var(--hint); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; font-family: var(--font-ui); transition: all 0.15s; }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-/* ── FILTER BAR ── */
 .filter-wrap { flex-shrink: 0; background: var(--bg); border-bottom: 0.5px solid var(--border); }
 .filter-bar { display: flex; gap: 7px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; }
 .filter-bar::-webkit-scrollbar { display: none; }
 .filter-chip { flex-shrink: 0; padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.15s; }
 .filter-chip.active { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); }
 
-/* ── INPUT AREA ── */
 .input-wrap { flex-shrink: 0; background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 12px 16px; }
 .input-row { display: flex; gap: 8px; align-items: center; }
-.main-input {
-  flex: 1; padding: 12px 14px; border-radius: var(--radius-sm);
-  border: 0.5px solid var(--border2); background: var(--surface2);
-  color: var(--text); font-size: 16px; font-family: var(--font-ui);
-  outline: none; transition: border-color 0.15s;
-  -webkit-appearance: none;
-}
+.main-input { flex: 1; padding: 12px 14px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 16px; font-family: var(--font-ui); outline: none; transition: border-color 0.15s; -webkit-appearance: none; }
 .main-input:focus { border-color: var(--accent); }
 .main-input::placeholder { color: var(--hint); }
 
-.mic-btn {
-  width: 44px; height: 44px; border-radius: 50%;
-  border: 0.5px solid var(--border2); background: var(--surface2);
-  color: var(--muted); font-size: 20px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: all 0.15s; position: relative;
-}
+.cat-select { height: 44px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 13px; font-family: var(--font-ui); font-weight: 500; outline: none; cursor: pointer; flex-shrink: 0; padding: 0 8px; -webkit-appearance: none; appearance: none; text-align: center; text-align-last: center; width: 118px; transition: border-color 0.15s; }
+.cat-select:focus { border-color: var(--accent); }
+.cat-select.auto-set { border-color: var(--accent); background: var(--accent-light); }
+
+.mic-btn { width: 44px; height: 44px; border-radius: 50%; border: 0.5px solid var(--border2); background: var(--surface2); color: var(--muted); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; position: relative; }
 .mic-btn.recording { background: #fee2e2; border-color: #ef4444; }
 .mic-btn.recording::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 2px solid #ef4444; animation: ripple 1s infinite; }
 @keyframes ripple { 0%{transform:scale(1);opacity:0.8} 100%{transform:scale(1.5);opacity:0} }
 
-.add-btn {
-  padding: 12px 18px; border-radius: var(--radius-sm);
-  background: var(--accent); color: #fff; border: none;
-  font-size: 15px; font-weight: 600; cursor: pointer;
-  font-family: var(--font-ui); transition: all 0.12s;
-  white-space: nowrap; flex-shrink: 0;
-}
+.add-btn { padding: 12px 18px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; flex-shrink: 0; }
 .add-btn:active { transform: scale(0.96); opacity: 0.9; }
 .add-btn.loading { opacity: 0.6; pointer-events: none; }
-
-.cat-select {
-  height: 44px; border-radius: var(--radius-sm);
-  border: 0.5px solid var(--border2); background: var(--surface2);
-  color: var(--text); font-size: 13px; font-family: var(--font-ui); font-weight: 500;
-  outline: none; cursor: pointer; flex-shrink: 0;
-  padding: 0 8px; -webkit-appearance: none; appearance: none;
-  text-align: center; text-align-last: center; width: 118px;
-  transition: border-color 0.15s;
-}
-.cat-select:focus { border-color: var(--accent); }
-.cat-select.auto-set { border-color: var(--accent); background: var(--accent-light); }
 
 .status-row { margin-top: 8px; min-height: 20px; }
 .status-msg { font-size: 12px; padding: 6px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; }
@@ -135,32 +98,18 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .dot-anim::after { content: ''; animation: dots 1.2s infinite; }
 @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
 
-/* ── SCROLL AREA ── */
 .scroll-area { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: env(safe-area-inset-bottom, 20px); }
 
-/* ── LIST ── */
 .section { padding: 0 16px; margin-top: 18px; }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .section-label { font-size: 11px; letter-spacing: 0.9px; text-transform: uppercase; color: var(--hint); font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .section-count { font-size: 11px; color: var(--hint); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
 
-.item-card {
-  background: var(--surface); border: 0.5px solid var(--border);
-  border-radius: var(--radius); padding: 13px 14px;
-  margin-bottom: 9px; display: flex; align-items: flex-start; gap: 12px;
-  box-shadow: var(--shadow); transition: opacity 0.2s, background 0.2s;
-  cursor: default;
-}
+.item-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 13px 14px; margin-bottom: 9px; display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--shadow); transition: opacity 0.2s, background 0.2s; }
 .item-card.checked { background: var(--surface2); box-shadow: none; opacity: 0.65; }
 .item-card.checked .item-name { text-decoration: line-through; color: var(--hint); }
 
-.check-circle {
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 1.5px solid var(--border2); background: transparent;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; flex-shrink: 0; margin-top: 1px;
-  transition: all 0.15s;
-}
+.check-circle { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border2); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; margin-top: 1px; transition: all 0.15s; }
 .check-circle.done { background: var(--accent); border-color: var(--accent); }
 .check-circle svg { display: none; }
 .check-circle.done svg { display: block; }
@@ -174,7 +123,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 .del-btn { width: 30px; height: 30px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; padding-bottom: 1px; }
 .del-btn:active { background: #fee2e2; color: #ef4444; }
-
 .clear-link { font-size: 12px; color: var(--warn); background: none; border: none; cursor: pointer; font-family: var(--font-ui); padding: 2px 0; }
 
 .empty { text-align: center; padding: 60px 24px; }
@@ -182,31 +130,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .empty-title { font-family: var(--font); font-size: 18px; color: var(--muted); margin-bottom: 6px; }
 .empty-sub { font-size: 13px; color: var(--hint); line-height: 1.5; }
 
-/* ── API KEY PROMPT ── */
-.api-banner {
-  margin: 14px 16px 0; padding: 12px 14px;
-  background: var(--tag-bg); border: 0.5px solid var(--tag-border);
-  border-radius: var(--radius-sm); font-size: 13px;
-}
-.api-banner strong { display: block; color: var(--tag-text); margin-bottom: 6px; font-size: 13px; }
-.api-banner p { color: var(--muted); line-height: 1.5; margin-bottom: 8px; }
-.api-key-row { display: flex; gap: 8px; }
-.api-key-input { flex: 1; padding: 8px 10px; border-radius: 8px; border: 0.5px solid var(--border2); background: var(--surface); color: var(--text); font-size: 13px; font-family: monospace; outline: none; }
-.api-save-btn { padding: 8px 14px; border-radius: 8px; background: var(--accent); color: #fff; border: none; font-size: 13px; cursor: pointer; font-family: var(--font-ui); }
-.api-status { font-size: 11px; color: var(--accent); margin-top: 5px; display: none; }
-
-/* ── HISTORY ── */
-.hist-item {
-  background: var(--surface); border: 0.5px solid var(--border);
-  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px;
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  box-shadow: var(--shadow);
-}
+.hist-item { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; box-shadow: var(--shadow); }
 .hist-name { font-size: 16px; font-family: var(--font); color: var(--text); }
 .hist-meta { font-size: 12px; color: var(--hint); margin-top: 3px; font-family: var(--font-ui); }
 .readd-btn { flex-shrink: 0; font-size: 12px; color: var(--accent); background: var(--accent-light); border: none; border-radius: 10px; padding: 6px 11px; cursor: pointer; font-family: var(--font-ui); font-weight: 500; white-space: nowrap; }
 
-/* ── SETTINGS PANEL ── */
 .settings-panel { padding: 16px; }
 .settings-panel h2 { font-family: var(--font); font-size: 18px; font-weight: normal; margin-bottom: 16px; color: var(--text); }
 .settings-section { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
@@ -220,7 +148,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </head>
 <body>
 <div id="app">
-
   <div class="header">
     <div class="header-top">
       <div class="app-title">Cart<em>&</em>Co</div>
@@ -233,7 +160,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     </div>
   </div>
 
-  <!-- LIST TAB -->
   <div id="tab-list" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
     <div class="filter-wrap">
       <div class="filter-bar" id="filterBar">
@@ -264,9 +190,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     </div>
   </div>
 
-  <!-- HISTORY TAB -->
   <div id="tab-history" style="display:none;flex:1;overflow:hidden;">
-    <div class="scroll-area" id="histScroll" style="padding:16px;">
+    <div class="scroll-area" style="padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:var(--font);font-size:16px;color:var(--muted);">Purchased items</span>
         <button class="clear-link" onclick="clearHistory()">Clear all</button>
@@ -275,7 +200,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     </div>
   </div>
 
-  <!-- SETTINGS TAB -->
   <div id="tab-settings" style="display:none;flex:1;overflow:hidden;">
     <div class="scroll-area">
       <div class="settings-panel">
@@ -292,7 +216,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         </div>
         <div class="settings-section">
           <div class="settings-label">Data</div>
-          <div class="settings-hint" style="margin-bottom:10px;">All your grocery data is saved locally on this device. Nothing is sent to any server except Claude API calls when parsing items (only the text you type is sent).</div>
+          <div class="settings-hint" style="margin-bottom:10px;">All grocery data is saved locally on this device. Nothing is sent to any server except Claude API calls when parsing items.</div>
           <button class="danger-btn" onclick="nukeData()">🗑 Clear all data</button>
         </div>
         <div class="settings-section">
@@ -305,20 +229,18 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       </div>
     </div>
   </div>
-
 </div>
 
 <script>
-// ── CATEGORIES ──
 const CATS = {
-  produce:   { label:'Produce',         icon:'🥦', kw:['apple','banana','orange','grape','strawberry','blueberry','raspberry','lemon','lime','avocado','tomato','lettuce','spinach','kale','broccoli','carrot','celery','cucumber','bell pepper','pepper','onion','garlic','potato','sweet potato','yam','corn','mushroom','zucchini','asparagus','pear','peach','plum','mango','pineapple','melon','watermelon','cantaloupe','herb','basil','cilantro','parsley','mint','dill','chive','ginger','beet','radish','arugula','cabbage','cauliflower','eggplant','squash','scallion','shallot','fennel','artichoke','brussels','leek','chard','collard','endive','turnip','parsnip','rutabaga','okra','bok choy','bean sprout','alfalfa'] },
-  meat:      { label:'Meat & Seafood',  icon:'🥩', kw:['chicken','beef','pork','lamb','turkey','salmon','tuna','shrimp','steak','ground beef','ground turkey','ground pork','bacon','sausage','ham','fish','tilapia','cod','halibut','haddock','crab','lobster','duck','veal','brisket','rib','hot dog','pepperoni','prosciutto','salami','chorizo','pancetta','anchovy','sardine','clam','mussel','oyster','scallop','squid','octopus','venison','bison','rabbit'] },
-  dairy:     { label:'Dairy & Eggs',    icon:'🥛', kw:['milk','cheese','butter','yogurt','cream','egg','sour cream','cream cheese','cottage cheese','mozzarella','cheddar','parmesan','brie','feta','ricotta','whipped cream','half and half','heavy cream','oat milk','almond milk','soy milk','coconut milk','gouda','provolone','swiss','gruyere','manchego','mascarpone','kefir','ghee','queso'] },
-  bakery:    { label:'Bakery & Bread',  icon:'🍞', kw:['bread','bagel','muffin','croissant','roll','tortilla','pita','naan','baguette','sourdough','rye','focaccia','english muffin','pancake','waffle mix','biscuit','cracker','pretzel','brioche','challah','ciabatta','wrap','flatbread'] },
-  pantry:    { label:'Pantry',          icon:'🫙', kw:['pasta','rice','flour','sugar','salt','pepper','oil','vinegar','soy sauce','sauce','soup','broth','stock','can','bean','lentil','chickpea','quinoa','oat','oatmeal','cereal','granola','honey','syrup','peanut butter','almond butter','jam','jelly','ketchup','mustard','mayo','mayonnaise','dressing','hot sauce','worcestershire','balsamic','olive oil','vegetable oil','coconut oil','baking powder','baking soda','vanilla','chocolate','cocoa','spice','seasoning','curry','cumin','paprika','cinnamon','turmeric','chili','bay leaf','thyme','rosemary','oregano','tomato paste','salsa','taco','noodle','ramen','couscous','farro','barley','polenta','cornmeal','breadcrumb','panko','nutritional yeast','miso','tahini','fish sauce','oyster sauce','hoisin','sriracha','tabasco','capers','artichoke heart','sundried tomato','roasted pepper'] },
-  drinks:    { label:'Drinks',          icon:'🧃', kw:['water','juice','soda','beer','wine','coffee','tea','sparkling','kombucha','lemonade','energy drink','sports drink','cocoa','hot chocolate','cider','spirits','whiskey','vodka','gin','rum','tequila','prosecco','champagne','sake','cold brew'] },
-  snacks:    { label:'Snacks',          icon:'🍿', kw:['chip','popcorn','nut','almond','walnut','cashew','pistachio','pecan','trail mix','cookie','snack bar','granola bar','jerky','dried fruit','candy','chocolate bar','gummy','pretzel','rice cake','hummus','guacamole','cracker','pita chip','tortilla chip'] },
-  household: { label:'Household',       icon:'🧴', kw:['soap','shampoo','conditioner','toothpaste','deodorant','toilet paper','paper towel','dish soap','laundry','detergent','sponge','trash bag','zip lock','aluminum foil','plastic wrap','bleach','cleaner','disinfectant','lotion','razor','floss','mouthwash','sunscreen','hand sanitizer','dryer sheet','fabric softener','light bulb','battery','candle'] },
+  produce:   { label:'Produce',        icon:'🥦', kw:['apple','banana','orange','grape','strawberry','blueberry','raspberry','lemon','lime','avocado','tomato','lettuce','spinach','kale','broccoli','carrot','celery','cucumber','bell pepper','pepper','onion','garlic','potato','sweet potato','yam','corn','mushroom','zucchini','asparagus','pear','peach','plum','mango','pineapple','melon','watermelon','cantaloupe','herb','basil','cilantro','parsley','mint','dill','chive','ginger','beet','radish','arugula','cabbage','cauliflower','eggplant','squash','scallion','shallot','fennel','artichoke','brussels','leek','chard','collard','endive','turnip','parsnip','rutabaga','okra','bok choy','bean sprout','alfalfa'] },
+  meat:      { label:'Meat & Seafood', icon:'🥩', kw:['chicken','beef','pork','lamb','turkey','salmon','tuna','shrimp','steak','ground beef','ground turkey','ground pork','bacon','sausage','ham','fish','tilapia','cod','halibut','haddock','crab','lobster','duck','veal','brisket','rib','hot dog','pepperoni','prosciutto','salami','chorizo','pancetta','anchovy','sardine','clam','mussel','oyster','scallop','squid','octopus','venison','bison','rabbit'] },
+  dairy:     { label:'Dairy & Eggs',   icon:'🥛', kw:['milk','cheese','butter','yogurt','cream','egg','sour cream','cream cheese','cottage cheese','mozzarella','cheddar','parmesan','brie','feta','ricotta','whipped cream','half and half','heavy cream','oat milk','almond milk','soy milk','coconut milk','gouda','provolone','swiss','gruyere','manchego','mascarpone','kefir','ghee','queso'] },
+  bakery:    { label:'Bakery & Bread', icon:'🍞', kw:['bread','bagel','muffin','croissant','roll','tortilla','pita','naan','baguette','sourdough','rye','focaccia','english muffin','pancake','waffle mix','biscuit','cracker','pretzel','brioche','challah','ciabatta','wrap','flatbread'] },
+  pantry:    { label:'Pantry',         icon:'🫙', kw:['pasta','rice','flour','sugar','salt','pepper','oil','vinegar','soy sauce','sauce','soup','broth','stock','can','bean','lentil','chickpea','quinoa','oat','oatmeal','cereal','granola','honey','syrup','peanut butter','almond butter','jam','jelly','ketchup','mustard','mayo','mayonnaise','dressing','hot sauce','worcestershire','balsamic','olive oil','vegetable oil','coconut oil','baking powder','baking soda','vanilla','chocolate','cocoa','spice','seasoning','curry','cumin','paprika','cinnamon','turmeric','chili','bay leaf','thyme','rosemary','oregano','tomato paste','salsa','taco','noodle','ramen','couscous','farro','barley','polenta','cornmeal','breadcrumb','panko','nutritional yeast','miso','tahini','fish sauce','oyster sauce','hoisin','sriracha','tabasco','capers','artichoke heart','sundried tomato','roasted pepper'] },
+  drinks:    { label:'Drinks',         icon:'🧃', kw:['water','juice','soda','beer','wine','coffee','tea','sparkling','kombucha','lemonade','energy drink','sports drink','cocoa','hot chocolate','cider','spirits','whiskey','vodka','gin','rum','tequila','prosecco','champagne','sake','cold brew'] },
+  snacks:    { label:'Snacks',         icon:'🍿', kw:['chip','popcorn','nut','almond','walnut','cashew','pistachio','pecan','trail mix','cookie','snack bar','granola bar','jerky','dried fruit','candy','chocolate bar','gummy','pretzel','rice cake','hummus','guacamole','cracker','pita chip','tortilla chip'] },
+  household: { label:'Household',      icon:'🧴', kw:['soap','shampoo','conditioner','toothpaste','deodorant','toilet paper','paper towel','dish soap','laundry','detergent','sponge','trash bag','zip lock','aluminum foil','plastic wrap','bleach','cleaner','disinfectant','lotion','razor','floss','mouthwash','sunscreen','hand sanitizer','dryer sheet','fabric softener','light bulb','battery','candle'] },
 };
 
 function categorize(name) {
@@ -329,7 +251,6 @@ function categorize(name) {
   return 'pantry';
 }
 
-// ── STATE ──
 let items = [], history = [], activeFilter = 'all', currentTab = 'list';
 let recognition = null, isRecording = false;
 
@@ -340,11 +261,9 @@ function load() {
   if (key) document.getElementById('apiKeyInput').value = key;
   renderAll(); updateFilters();
 }
-
 function save() { localStorage.setItem('gco_items', JSON.stringify(items)); }
 function saveHistory() { localStorage.setItem('gco_history', JSON.stringify(history)); }
 
-// ── AI PARSING ──
 async function parseWithClaude(text) {
   const key = localStorage.getItem('gco_apikey');
   if (!key) return null;
@@ -358,7 +277,7 @@ CRITICAL RULES:
 5. If user says "stuff for X" or "ingredients for X", infer 3-5 typical ingredients as separate objects.
 
 Return ONLY a valid JSON array of objects, no markdown, no explanation.
-Each object: { "name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,frozen,drinks,snacks,household], "recipe": string|null, "note": string|null }
+Each object: { "name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": string|null, "note": string|null }
 
 Examples:
 "add chicken thighs and milk" → [{"name":"Chicken thighs","qty":null,"category":"meat","recipe":null,"note":null},{"name":"Milk","qty":null,"category":"dairy","recipe":null,"note":null}]
@@ -368,22 +287,15 @@ Examples:
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
   });
-  if (!resp.ok) {
-    const errBody = await resp.text();
-    throw new Error(`API ${resp.status}: ${errBody}`);
-  }
+  if (!resp.ok) { const e = await resp.text(); throw new Error(`API ${resp.status}: ${e}`); }
   const data = await resp.json();
-  console.log('Claude raw response:', data);
+  console.log('Claude response:', data);
   const raw = data.content.map(b => b.text || '').join('').trim();
-  console.log('Claude text:', raw);
   const clean = raw.replace(/```json|```/g, '').trim();
   const parsed = JSON.parse(clean);
-  // Safety net: if Claude returned 1 item whose name still contains " and " or commas, warn and return anyway
   if (Array.isArray(parsed) && parsed.length === 1) {
     const name = (parsed[0].name || '').toLowerCase();
-    if (/\band\b|,/.test(name)) {
-      console.warn('Claude did not split items correctly:', parsed[0].name);
-    }
+    if (/\band\b|,/.test(name)) console.warn('Claude did not split items correctly:', parsed[0].name);
   }
   return parsed;
 }
@@ -395,35 +307,19 @@ function setStatus(msg, type) {
 }
 
 function getCatSelect() { return document.getElementById('catSelect'); }
+function resetCatSelect() { const s = getCatSelect(); s.value = 'auto'; s.classList.remove('auto-set'); }
 
-function resetCatSelect() {
-  const sel = getCatSelect();
-  sel.value = 'auto';
-  sel.classList.remove('auto-set');
-}
-
-function setCatAuto(cat) {
-  const sel = getCatSelect();
-  sel.value = cat;
-  sel.classList.add('auto-set');
-}
-
-// When user types manually, auto-suggest category based on keyword matching
 function onManualInput() {
   const text = document.getElementById('mainInput').value.trim();
   const sel = getCatSelect();
   if (!text) { resetCatSelect(); return; }
-  const guessed = categorize(text);
-  // Only update if still on auto or a previously auto-set value
-  sel.value = guessed;
+  sel.value = categorize(text);
   sel.classList.add('auto-set');
 }
 
-// When user manually changes the dropdown, lock it (remove auto-set styling to show it's manual)
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('catSelect').addEventListener('change', function() {
-    if (this.value === 'auto') { this.classList.remove('auto-set'); }
-    else { this.classList.remove('auto-set'); } // manual override — no highlight
+    this.classList.remove('auto-set');
   });
 });
 
@@ -438,11 +334,10 @@ async function handleAdd() {
   await parseAndAdd(text, manualCat);
 }
 
-// ── VOICE ──
 function toggleVoice() {
   if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
     setStatus('Voice not supported — use Chrome or Safari', 'error');
-    setTimeout(() => setStatus('',''), 3000); return;
+    setTimeout(() => setStatus('', ''), 3000); return;
   }
   if (isRecording) { recognition.stop(); return; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -452,11 +347,8 @@ function toggleVoice() {
   let bestTranscript = '';
   recognition.onstart = () => { isRecording = true; mic.classList.add('recording'); setStatus('Listening…', 'voice'); };
   recognition.onresult = e => {
-    // Always capture the best available transcript from ALL results
     let full = '';
-    for (const result of e.results) {
-      full += result[0].transcript;
-    }
+    for (const r of e.results) full += r[0].transcript;
     bestTranscript = full;
     setStatus(`"${full}"`, 'voice');
   };
@@ -467,10 +359,9 @@ function toggleVoice() {
     if (!text) { setStatus('', ''); return; }
     setStatus('Processing…', 'thinking');
     resetCatSelect();
-    // Defer to let iOS Safari resume network after speech recognition ends
     setTimeout(() => parseAndAdd(text, null), 300);
   };
-  recognition.onerror = () => { isRecording = false; mic.classList.remove('recording'); setStatus('Voice error — try again', 'error'); setTimeout(()=>setStatus('',''),2500); };
+  recognition.onerror = () => { isRecording = false; mic.classList.remove('recording'); setStatus('Voice error — try again', 'error'); setTimeout(() => setStatus('', ''), 2500); };
   recognition.start();
 }
 
@@ -480,24 +371,23 @@ async function parseAndAdd(text, manualCat = null) {
   let parsed = null;
   const hasKey = !!localStorage.getItem('gco_apikey');
   if (!hasKey) {
-    setStatus('⚠ No API key — enter it in Settings to use parsing', 'error');
-    setTimeout(() => setStatus('',''), 4000);
+    setStatus('⚠ No API key — enter it in Settings', 'error');
+    setTimeout(() => setStatus('', ''), 4000);
     btn.classList.remove('loading'); btn.textContent = 'Add';
     return;
   }
   setStatus('<span class="dot-anim">Parsing</span>', 'thinking');
-  try {
-    parsed = await parseWithClaude(text);
-  } catch(e) {
+  try { parsed = await parseWithClaude(text); }
+  catch(e) {
     console.error('Claude parse error:', e);
     setStatus('⚠ ' + e.message, 'error');
-    setTimeout(() => setStatus('',''), 5000);
+    setTimeout(() => setStatus('', ''), 5000);
     btn.classList.remove('loading'); btn.textContent = 'Add';
     return;
   }
   if (!parsed || parsed.length === 0) {
     setStatus('⚠ Could not parse items — try rephrasing', 'error');
-    setTimeout(() => setStatus('',''), 4000);
+    setTimeout(() => setStatus('', ''), 4000);
     btn.classList.remove('loading'); btn.textContent = 'Add';
     return;
   }
@@ -510,18 +400,13 @@ async function parseAndAdd(text, manualCat = null) {
   });
   save();
   btn.classList.remove('loading'); btn.textContent = 'Add';
-  if (added.length > 0) {
-    setStatus(`✓ Added: ${added.join(', ')}`, 'thinking');
-    setTimeout(() => setStatus('', ''), 3000);
-  } else {
-    setStatus('', '');
-  }
+  if (added.length > 0) { setStatus(`✓ Added: ${added.join(', ')}`, 'thinking'); setTimeout(() => setStatus('', ''), 3000); }
+  else setStatus('', '');
   renderAll(); updateFilters(); updateCount();
 }
 
 document.getElementById('mainInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleAdd(); });
 
-// ── CHECK / DELETE ──
 function toggleCheck(id) {
   const item = items.find(i => i.id == id);
   if (!item) return;
@@ -536,11 +421,9 @@ function restoreItem(boughtAt) {
   const h = history.find(i => i.boughtAt === boughtAt);
   if (!h) return;
   items.unshift({ id: Date.now(), name: h.name, qty: h.qty, recipe: h.recipe, note: h.note, category: h.category, checked: false, addedAt: new Date().toISOString() });
-  save(); renderAll(); updateFilters(); updateCount();
-  switchTab('list');
+  save(); renderAll(); updateFilters(); updateCount(); switchTab('list');
 }
 
-// ── FILTER ──
 function setFilter(f, el) {
   activeFilter = f;
   document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
@@ -560,12 +443,10 @@ function updateFilters() {
   });
 }
 
-// ── RENDER ──
 function updateCount() {
   const unc = items.filter(i => !i.checked).length;
   document.getElementById('itemCount').textContent = unc === 0 ? 'empty' : `${unc} item${unc!==1?'s':''}`;
 }
-
 function renderAll() { renderList(); renderHistory(); updateCount(); }
 
 function renderList() {
@@ -606,9 +487,7 @@ function itemCard(item) {
     </div>
     <div class="item-body">
       <div class="item-name">${esc(item.name)}</div>
-      ${(item.qty||item.recipe||item.note)?`<div class="item-sub">${item.qty?`<span class="qty-pill">${esc(item.qty)}</span>`:''}${item.recipe?`<span class="recipe-pill">🍽 ${esc(item.recipe)}</span>`:''}${item.note?`<span class="note-pill">${esc(item.note)}</span>`:''}
-      </div>`:''}
-    </div>
+      ${(item.qty||item.recipe||item.note)?`<div class="item-sub">${item.qty?`<span class="qty-pill">${esc(item.qty)}</span>`:''}${item.recipe?`<span class="recipe-pill">🍽 ${esc(item.recipe)}</span>`:''}${item.note?`<span class="note-pill">${esc(item.note)}</span>`:''}</div>`:''}</div>
     <button class="del-btn" onclick="deleteItem(${item.id})">×</button>
   </div>`;
 }
@@ -630,13 +509,7 @@ function renderHistory() {
     html += `<div style="font-size:11px;letter-spacing:0.8px;text-transform:uppercase;color:var(--hint);font-weight:600;margin:16px 0 8px;">${date}</div>`;
     hItems.forEach(h => {
       const cat = CATS[h.category]?.label || '';
-      html += `<div class="hist-item">
-        <div>
-          <div class="hist-name">${esc(h.name)}</div>
-          <div class="hist-meta">${cat}${h.recipe?' · '+esc(h.recipe):''}</div>
-        </div>
-        <button class="readd-btn" onclick="restoreItem('${h.boughtAt}')">+ Add again</button>
-      </div>`;
+      html += `<div class="hist-item"><div><div class="hist-name">${esc(h.name)}</div><div class="hist-meta">${cat}${h.recipe?' · '+esc(h.recipe):''}</div></div><button class="readd-btn" onclick="restoreItem('${h.boughtAt}')">+ Add again</button></div>`;
     });
   }
   container.innerHTML = html;
@@ -644,7 +517,6 @@ function renderHistory() {
 
 function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ── TABS ──
 function switchTab(t) {
   currentTab = t;
   ['list','history','settings'].forEach(id => {
@@ -653,18 +525,16 @@ function switchTab(t) {
   document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['list','history','settings'][i]===t));
 }
 
-// ── SETTINGS ──
 function saveApiKey() {
   const key = document.getElementById('apiKeyInput').value.trim();
   if (key) { localStorage.setItem('gco_apikey', key); alert('✓ API key saved. Claude AI parsing is now active.'); }
-  else { localStorage.removeItem('gco_apikey'); alert('API key cleared. Using offline keyword parsing.'); }
+  else { localStorage.removeItem('gco_apikey'); alert('API key cleared.'); }
 }
 function nukeData() {
   if (!confirm('Delete all grocery data? This cannot be undone.')) return;
   localStorage.removeItem('gco_items'); localStorage.removeItem('gco_history');
   items = []; history = [];
-  renderAll(); updateFilters(); updateCount();
-  switchTab('list');
+  renderAll(); updateFilters(); updateCount(); switchTab('list');
 }
 
 load();
