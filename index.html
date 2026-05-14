@@ -591,19 +591,27 @@ async function fetchPageHtml(rawUrl) {
     , 8000);
   } catch {}
 
-  // 2. allorigins.win proxy
+  // 2. allorigins.win
   try {
     return await timed(sig =>
       fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: sig })
         .then(r => r.json())
-        .then(d => { if (!d.contents) throw new Error(); return d.contents; })
+        .then(d => { if (!d.contents || d.contents.length < 500) throw new Error(); return d.contents; })
     , 15000);
   } catch {}
 
-  // 3. corsproxy.io proxy
+  // 3. corsproxy.io
   try {
     return await timed(sig =>
       fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, { signal: sig })
+        .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    , 15000);
+  } catch {}
+
+  // 4. codetabs
+  try {
+    return await timed(sig =>
+      fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: sig })
         .then(r => { if (!r.ok) throw new Error(); return r.text(); })
     , 15000);
   } catch {}
@@ -612,13 +620,19 @@ async function fetchPageHtml(rawUrl) {
 }
 
 function extractRecipeJsonLd(html) {
-  const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  // Flexible match: handles whitespace, optional quotes, extra attributes
+  const re = /<script[^>]+type\s*=\s*["']?\s*application\/ld\+json\s*["']?[^>]*>([\s\S]*?)<\/script>/gi;
   let m;
   while ((m = re.exec(html)) !== null) {
     try {
       const obj = JSON.parse(m[1]);
-      const nodes = Array.isArray(obj['@graph']) ? obj['@graph'] : [obj];
-      for (const node of nodes) {
+      // Handle @graph array, plain object, or array at root
+      const candidates = [
+        ...(Array.isArray(obj['@graph']) ? obj['@graph'] : []),
+        ...(Array.isArray(obj) ? obj : [obj]),
+      ];
+      for (const node of candidates) {
+        if (!node || typeof node !== 'object') continue;
         const t = node['@type'];
         const isRecipe = t === 'Recipe' || (Array.isArray(t) && t.includes('Recipe'));
         if (isRecipe && Array.isArray(node.recipeIngredient) && node.recipeIngredient.length > 0) return node;
@@ -676,22 +690,23 @@ async function parseRecipeUrl(url) {
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ').trim().slice(0, 8000);
+      .replace(/\s+/g, ' ').trim().slice(0, 15000);
     try {
       const result = await extractRecipeWithClaude(stripped, url);
       recipeName = result.name || null;
-      ingredientText = Array.isArray(result.ingredients) ? result.ingredients.join('\n') : null;
+      ingredientText = Array.isArray(result.ingredients) && result.ingredients.length > 0
+        ? result.ingredients.join('\n') : null;
     } catch(e) {
       btn.classList.remove('loading'); btn.textContent = 'Add';
-      setStatus('⚠ ' + e.message, 'error');
-      setTimeout(() => setStatus('', ''), 5000); return;
+      setStatus('⚠ Could not read page — try pasting the ingredient list directly', 'error');
+      setTimeout(() => setStatus('', ''), 6000); return;
     }
   }
 
   if (!ingredientText) {
     btn.classList.remove('loading'); btn.textContent = 'Add';
-    setStatus('⚠ No ingredients found on that page', 'error');
-    setTimeout(() => setStatus('', ''), 4000); return;
+    setStatus('⚠ No ingredients found — site may require login or block scrapers', 'error');
+    setTimeout(() => setStatus('', ''), 6000); return;
   }
 
   setStatus('<span class="dot-anim">Parsing ingredients</span>', 'thinking');
