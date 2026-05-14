@@ -750,7 +750,7 @@ RULES:
 3. Ignore cooking instructions — do NOT include words like "chopped", "diced", "minced", "peeled", "sliced", "roughly chopped", "finely chopped", "to taste" etc. These are prep notes, not shopping info.
 4. Set "recipe": null and "note": null for all items.
 5. NAME formatting: use sentence case (capitalize only the first letter, e.g. "Yellow onion", "Olive oil"). Correct any ALL CAPS or weird casing.
-6. EMOJI: if there is a single universally-recognized emoji for this specific item, prepend it and a space to the name (e.g. "🧅 Yellow onion", "🍅 Tomatoes", "🧄 Garlic", "🫒 Olive oil"). Skip the emoji if unsure — do not force a generic one.
+6. EMOJI: always prepend one emoji using the closest semantic match — if no exact emoji exists, use the emoji for the broader category it belongs to. Examples of the logic: orzo/farro/couscous/barley → 🌾 (grain); pasta/noodles → 🍝; any leafy green → 🥬; any citrus → 🍋; any berry → 🫐; any tree nut → 🥜; any cooking oil → 🫒; any vinegar/condiment → 🍶; any broth/stock → 🍲; any canned bean/legume → 🫘; any flour → 🌾; any sugar/sweetener → 🍬; any spice/herb (dry) → 🌿; any fresh herb → 🌿; any mushroom → 🍄; any root vegetable → 🥕; any seafood → 🦐. Only omit emoji if truly no reasonable match exists.
 
 Return ONLY a valid JSON array, no markdown:
 [{"name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": null, "note": null}]
@@ -781,7 +781,7 @@ CRITICAL RULES:
 5. If user says "stuff for X" or "ingredients for X", infer 3-5 typical ingredients as separate objects.
 6. Input may be a formatted ingredient list (one item per line with quantities). Parse each line as its own object.
 7. NAME formatting: use sentence case (capitalize only the first letter, e.g. "Chicken thighs", "Bell peppers", "Olive oil"). Correct any ALL CAPS or weird casing.
-8. EMOJI: if there is a single universally-recognized emoji for this specific item, prepend it and a space to the name (e.g. "🍎 Apples", "🥛 Milk", "🥦 Broccoli", "🍞 Bread", "🧀 Cheese", "🥚 Eggs", "🍗 Chicken thighs"). Skip the emoji if unsure — do not force a generic one.
+8. EMOJI: always prepend one emoji using the closest semantic match — if no exact emoji exists, use the emoji for the broader category it belongs to. Examples of the logic: orzo/farro/couscous/barley → 🌾 (grain); pasta/noodles → 🍝; any leafy green → 🥬; any citrus → 🍋; any berry → 🫐; any tree nut → 🥜; any cooking oil → 🫒; any vinegar/condiment → 🍶; any broth/stock → 🍲; any canned bean/legume → 🫘; any flour → 🌾; any sugar/sweetener → 🍬; any spice/herb (dry) → 🌿; any fresh herb → 🌿; any mushroom → 🍄; any root vegetable → 🥕; any seafood → 🦐. Only omit emoji if truly no reasonable match exists.
 
 Return ONLY a valid JSON array of objects, no markdown, no explanation.
 Each object: { "name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": string|null, "note": string|null }
