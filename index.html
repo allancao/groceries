@@ -562,7 +562,22 @@ function makeShortTag(name) {
   return out || clean.slice(0, 28).trim();
 }
 
-async function fetchPageHtml(url) {
+function stripTrackingParams(url) {
+  try {
+    const u = new URL(url);
+    const tracking = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term',
+                      'fbclid','gclid','msclkid','aem_id','aem_campaign_id'];
+    tracking.forEach(p => u.searchParams.delete(p));
+    // strip any _aem_* params (variable suffixes)
+    for (const k of [...u.searchParams.keys()]) {
+      if (k.startsWith('_aem') || k.startsWith('aem_')) u.searchParams.delete(k);
+    }
+    return u.toString();
+  } catch { return url; }
+}
+
+async function fetchPageHtml(rawUrl) {
+  const url = stripTrackingParams(rawUrl);
   const timed = (fn, ms) => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms);
@@ -976,16 +991,16 @@ function renderPreviewItems() {
   container.innerHTML = '';
 
   const catOrder = ['produce','meat','dairy','bakery','pantry','drinks','snacks','household'];
+  const resolvedCat = p => ((p._manualCat || p.category || '').toLowerCase()) || categorize(p.name);
   const sorted = previewParsed
-    .map((p, i) => ({ p, i }))
+    .map((p, i) => ({ p, i, cat: resolvedCat(p) }))
     .sort((a, b) => {
-      const ai = catOrder.indexOf(a.p._manualCat || a.p.category || categorize(a.p.name));
-      const bi = catOrder.indexOf(b.p._manualCat || b.p.category || categorize(b.p.name));
+      const ai = catOrder.indexOf(a.cat);
+      const bi = catOrder.indexOf(b.cat);
       return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
     });
 
-  sorted.forEach(({ p, i }) => {
-    const cat = p._manualCat || p.category || categorize(p.name);
+  sorted.forEach(({ p, i, cat }) => {
     const icon = CATS[cat]?.icon || '•';
     const removed = previewRemoved.has(i);
     const recipe = p._previewRecipe;
