@@ -681,7 +681,7 @@ async function parseRecipeUrl(url) {
 
   setStatus('<span class="dot-anim">Parsing ingredients</span>', 'thinking');
   let parsed;
-  try { parsed = await parseWithClaude(ingredientText); }
+  try { parsed = await parseIngredientsForShopping(ingredientText); }
   catch(e) {
     btn.classList.remove('loading'); btn.textContent = 'Add';
     setStatus('⚠ ' + e.message, 'error');
@@ -704,6 +704,33 @@ async function parseRecipeUrl(url) {
 }
 
 // ── Claude ──
+async function parseIngredientsForShopping(ingredientLines) {
+  const key = localStorage.getItem('gco_apikey');
+  if (!key) return null;
+  const prompt = `Parse this recipe ingredient list for a grocery shopping list.
+
+RULES:
+1. Each line is one ingredient — return it as its own object.
+2. Extract: the item NAME (what to buy), QUANTITY (amount + unit, e.g. "2 lbs", "1 medium", "6 cloves"), and CATEGORY.
+3. Ignore cooking instructions — do NOT include words like "chopped", "diced", "minced", "peeled", "sliced", "roughly chopped", "finely chopped", "to taste" etc. These are prep notes, not shopping info.
+4. Set "recipe": null and "note": null for all items.
+
+Return ONLY a valid JSON array, no markdown:
+[{"name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": null, "note": null}]
+
+Ingredients:
+${ingredientLines}`;
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!resp.ok) { const e = await resp.text(); throw new Error(`API ${resp.status}: ${e}`); }
+  const data = await resp.json();
+  const raw = data.content.map(b => b.text || '').join('').trim();
+  return JSON.parse(raw.replace(/```json|```/g, '').trim());
+}
+
 async function parseWithClaude(text) {
   const key = localStorage.getItem('gco_apikey');
   if (!key) return null;
@@ -879,7 +906,8 @@ function renderPreviewTagAll() {
   const activeRecipes = [...new Set(activeItems.map(p => p._previewRecipe))];
   const commonTag = activeRecipes.length === 1 ? activeRecipes[0] : null;
 
-  let html = `<div class=”preview-tag-all-label”>Tag all items as</div><div class=”preview-tag-chips”>`;
+  let html = `<div class=”preview-tag-all-label”>Tag all items as</div>`;
+  html += `<div style=”display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;”>`;
   html += `<span class=”preview-tag-chip${commonTag === null && activeRecipes.length <= 1 ? ' on' : ''}” onclick=”setAllPreviewRecipe(null)”>None</span>`;
   tags.forEach(t => {
     html += `<span class=”preview-tag-chip${commonTag === t ? ' on' : ''}” onclick=”setAllPreviewRecipe('${esc(t)}')”>${esc(t)}</span>`;
@@ -910,6 +938,12 @@ function renderPreviewItems() {
   confirmBtn.disabled = activeCount === 0;
   confirmBtn.textContent = activeCount === 1 ? 'Add 1 item' : `Add ${activeCount} items`;
   const tags = allTags();
+
+  // Compute common tag so we can suppress per-item pill when all items share it
+  const activeItems = previewParsed.filter((_, i) => !previewRemoved.has(i));
+  const uniqueRecipes = [...new Set(activeItems.map(p => p._previewRecipe))];
+  const commonTag = uniqueRecipes.length === 1 ? uniqueRecipes[0] : null;
+
   container.innerHTML = previewParsed.map((p, i) => {
     const cat = p._manualCat || p.category || categorize(p.name);
     const icon = CATS[cat]?.icon || '•';
@@ -917,32 +951,40 @@ function renderPreviewItems() {
     const recipe = p._previewRecipe;
     const showPicker = previewInlinePickerIdx === i && !removed;
 
-    const tagHtml = recipe
-      ? `<span class=”recipe-pill” onclick=”togglePreviewInlinePicker(${i})” style=”cursor:pointer;”>🍽 ${esc(recipe)}</span>`
-      : `<button class=”preview-tag-btn” onclick=”togglePreviewInlinePicker(${i})”>+ tag</button>`;
+    // Only show per-item recipe pill when it differs from the common “tag all” value
+    const showTagPill = !removed && (commonTag === null || recipe !== commonTag);
+    const tagHtml = showTagPill
+      ? (recipe
+          ? `<span class=”recipe-pill” onclick=”togglePreviewInlinePicker(${i})” style=”cursor:pointer”>🍽 ${esc(recipe)}</span>`
+          : `<button class=”preview-tag-btn” onclick=”togglePreviewInlinePicker(${i})”>+ tag</button>`)
+      : '';
 
     const pickerHtml = showPicker ? `<div class=”preview-inline-picker”>
-        <div class=”preview-inline-chips”>
+        <div style=”display:flex;gap:6px;flex-wrap:wrap;”>
           <span class=”preview-inline-chip${!recipe ? ' on' : ''}” onclick=”setPreviewItemRecipe(${i},null)”>None</span>
           ${tags.map(t => `<span class=”preview-inline-chip${recipe===t?' on':''}” onclick=”setPreviewItemRecipe(${i},'${esc(t)}')”>${esc(t)}</span>`).join('')}
         </div>
         <input class=”preview-inline-input” placeholder=”New recipe name…” onkeydown=”if(event.key==='Enter'&&this.value.trim()){addAndSetPreviewItemTag(${i},this.value);this.value='';}”>
       </div>` : '';
 
-    return `<div class=”preview-item${removed ? ' removed' : ''}”>
-      <div class=”preview-item-icon”>${icon}</div>
-      <div class=”preview-item-body”>
+    const cardStyle = removed
+      ? 'display:flex;align-items:flex-start;gap:12px;opacity:0.4;background:var(--surface2);border-radius:var(--radius);padding:13px 14px;margin-bottom:9px;'
+      : 'display:flex;align-items:flex-start;gap:12px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:13px 14px;margin-bottom:9px;box-shadow:var(--shadow);';
+
+    return `<div class=”preview-item${removed ? ' removed' : ''}” style=”${cardStyle}”>
+      <div style=”font-size:20px;flex-shrink:0;width:28px;text-align:center;padding-top:2px;”>${icon}</div>
+      <div style=”flex:1;min-width:0;”>
         <div class=”preview-item-name”>${esc(p.name)}</div>
         <div class=”preview-item-meta”>
           ${p.qty ? `<span class=”qty-pill”>${esc(p.qty)}</span>` : ''}
-          ${removed ? '' : tagHtml}
+          ${tagHtml}
           ${p.note ? `<span class=”note-pill”>${esc(p.note)}</span>` : ''}
         </div>
         ${pickerHtml}
       </div>
       ${removed
         ? `<button class=”preview-remove-btn undo” onclick=”undoRemovePreviewItem(${i})”>Undo</button>`
-        : `<button class=”preview-remove-btn” onclick=”removePreviewItem(${i})” title=”Remove”>×</button>`}
+        : `<button style=”width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:var(--hint);cursor:pointer;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding-bottom:1px;” onclick=”removePreviewItem(${i})” title=”Remove”>×</button>`}
     </div>`;
   }).join('');
 }
