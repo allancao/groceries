@@ -118,7 +118,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .item-name { font-size: 17px; font-family: var(--font); color: var(--text); line-height: 1.25; word-break: break-word; }
 .item-sub { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
 .qty-pill { font-size: 11px; color: var(--muted); background: var(--surface2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); }
-.recipe-pill { font-size: 11px; color: var(--tag-text); background: var(--tag-bg); border: 0.5px solid var(--tag-border); padding: 2px 9px; border-radius: 8px; font-family: var(--font-ui); font-weight: 500; }
+.recipe-pill { font-size: 11px; color: var(--tag-text); background: var(--tag-bg); border: 0.5px solid var(--tag-border); padding: 2px 9px; border-radius: 8px; font-family: var(--font-ui); font-weight: 500; cursor: pointer; }
+.recipe-pill:active { opacity: 0.7; }
+.tag-btn { font-size: 11px; color: var(--hint); background: var(--surface2); border: 0.5px dashed var(--border2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); cursor: pointer; transition: all 0.15s; }
+.tag-btn:active { border-color: var(--tag-border); color: var(--tag-text); }
 .note-pill { font-size: 11px; color: var(--muted); font-style: italic; }
 
 .del-btn { width: 30px; height: 30px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; padding-bottom: 1px; }
@@ -135,6 +138,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .hist-meta { font-size: 12px; color: var(--hint); margin-top: 3px; font-family: var(--font-ui); }
 .readd-btn { flex-shrink: 0; font-size: 12px; color: var(--accent); background: var(--accent-light); border: none; border-radius: 10px; padding: 6px 11px; cursor: pointer; font-family: var(--font-ui); font-weight: 500; white-space: nowrap; }
 
+/* ── Settings ── */
 .settings-panel { padding: 16px; }
 .settings-panel h2 { font-family: var(--font); font-size: 18px; font-weight: normal; margin-bottom: 16px; color: var(--text); }
 .settings-section { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
@@ -145,21 +149,31 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .settings-hint a { color: var(--accent); text-decoration: none; }
 .danger-btn { padding: 10px 18px; border-radius: var(--radius-sm); background: #fee2e2; color: #b91c1c; border: 0.5px solid #fca5a5; font-size: 14px; cursor: pointer; font-family: var(--font-ui); width: 100%; margin-top: 6px; }
 
-/* ── Voice Preview Bottom Sheet ── */
-.preview-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
-.preview-backdrop.visible { opacity: 1; pointer-events: all; }
+/* ── Tag manager in settings ── */
+.tag-manager-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+.tag-manager-row { display: flex; align-items: center; gap: 8px; }
+.tag-manager-name { flex: 1; font-size: 14px; font-family: var(--font-ui); color: var(--text); background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 10px; outline: none; }
+.tag-manager-name:focus { border-color: var(--accent); }
+.tag-manager-del { width: 30px; height: 30px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+.tag-manager-del:active { background: #fee2e2; color: #ef4444; }
+.tag-add-row { display: flex; gap: 8px; }
+.tag-add-input { flex: 1; padding: 9px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 14px; font-family: var(--font-ui); outline: none; }
+.tag-add-input:focus { border-color: var(--accent); }
+.tag-add-btn { padding: 9px 14px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); white-space: nowrap; }
 
-.preview-sheet { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%); width: 100%; max-width: 480px; background: var(--surface); border-radius: 20px 20px 0 0; z-index: 101; transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); padding-bottom: env(safe-area-inset-bottom, 16px); box-shadow: 0 -4px 24px rgba(0,0,0,0.12); }
-.preview-sheet.visible { transform: translateX(-50%) translateY(0); }
+/* ── Shared bottom sheet base ── */
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+.sheet-backdrop.visible { opacity: 1; pointer-events: all; }
+.bottom-sheet { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%); width: 100%; max-width: 480px; background: var(--surface); border-radius: 20px 20px 0 0; z-index: 101; transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); padding-bottom: env(safe-area-inset-bottom, 16px); box-shadow: 0 -4px 24px rgba(0,0,0,0.12); }
+.bottom-sheet.visible { transform: translateX(-50%) translateY(0); }
+.sheet-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 10px auto 0; }
+.sheet-header { padding: 14px 16px 10px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.sheet-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.sheet-close { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--surface2); color: var(--muted); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-.preview-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 10px auto 0; }
-
-.preview-header { padding: 14px 16px 10px; border-bottom: 0.5px solid var(--border); }
-.preview-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
-.preview-transcript { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 7px 10px; border-radius: 8px; line-height: 1.45; }
-
-.preview-items { max-height: 42vh; overflow-y: auto; padding: 10px 16px; }
-
+/* ── Voice preview sheet ── */
+.preview-transcript { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 7px 10px; border-radius: 8px; line-height: 1.45; margin: 10px 16px 0; }
+.preview-items { max-height: 38vh; overflow-y: auto; padding: 10px 16px; }
 .preview-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 7px; border: 0.5px solid var(--border); }
 .preview-item.removed { opacity: 0.35; }
 .preview-item-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
@@ -169,12 +183,26 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .preview-remove-btn { width: 28px; height: 28px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
 .preview-remove-btn:active { background: #fee2e2; color: #ef4444; }
 .preview-remove-btn.undo { color: var(--accent); font-size: 13px; font-weight: 600; width: auto; padding: 0 6px; border-radius: 6px; background: var(--accent-light); }
+.sheet-footer { display: flex; gap: 8px; padding: 10px 16px 4px; }
+.sheet-cancel-btn { flex: 1; padding: 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--muted); font-size: 15px; font-weight: 500; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; }
+.sheet-confirm-btn { flex: 2; padding: 12px; border-radius: var(--radius-sm); border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; }
+.sheet-confirm-btn:active, .sheet-cancel-btn:active { transform: scale(0.97); opacity: 0.88; }
+.sheet-confirm-btn:disabled { opacity: 0.45; pointer-events: none; }
 
-.preview-footer { display: flex; gap: 8px; padding: 10px 16px 4px; }
-.preview-cancel-btn { flex: 1; padding: 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--muted); font-size: 15px; font-weight: 500; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; }
-.preview-confirm-btn { flex: 2; padding: 12px; border-radius: var(--radius-sm); border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; }
-.preview-confirm-btn:active, .preview-cancel-btn:active { transform: scale(0.97); opacity: 0.88; }
-.preview-confirm-btn:disabled { opacity: 0.45; pointer-events: none; }
+/* ── Tag picker sheet ── */
+.tag-picker-body { padding: 12px 16px; max-height: 50vh; overflow-y: auto; }
+.tag-picker-item { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: var(--radius-sm); margin-bottom: 6px; background: var(--surface2); border: 0.5px solid var(--border); cursor: pointer; transition: all 0.15s; }
+.tag-picker-item:active { opacity: 0.75; }
+.tag-picker-item.selected { background: var(--tag-bg); border-color: var(--tag-border); }
+.tag-picker-label { font-size: 14px; font-family: var(--font-ui); color: var(--text); }
+.tag-picker-item.selected .tag-picker-label { color: var(--tag-text); font-weight: 600; }
+.tag-picker-check { color: var(--accent); font-size: 16px; }
+.tag-picker-none { color: var(--hint); font-size: 13px; font-style: italic; }
+.tag-picker-divider { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--hint); font-weight: 600; margin: 10px 0 6px; }
+.tag-new-row { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--border); }
+.tag-new-input { flex: 1; padding: 9px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 14px; font-family: var(--font-ui); outline: none; }
+.tag-new-input:focus { border-color: var(--accent); }
+.tag-new-btn { padding: 9px 14px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -236,6 +264,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="settings-panel">
         <h2>Settings</h2>
         <div class="settings-section">
+          <div class="settings-label">Recipe Tags</div>
+          <div class="tag-manager-list" id="tagManagerList"></div>
+          <div class="tag-add-row">
+            <input class="tag-add-input" id="tagAddInput" type="text" placeholder="New tag name…" autocomplete="off" />
+            <button class="tag-add-btn" onclick="addTagFromSettings()">+ Add</button>
+          </div>
+          <div class="settings-hint" style="margin-top:8px;">Tags appear as filters on your list. Tap the recipe pill on any item to assign or change its tag.</div>
+        </div>
+        <div class="settings-section">
           <div class="settings-label">Claude API Key</div>
           <input class="settings-input" id="apiKeyInput" type="password" placeholder="sk-ant-..." />
           <button class="settings-save" onclick="saveApiKey()">Save key</button>
@@ -262,19 +299,32 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 </div>
 
-<!-- Voice Preview Bottom Sheet -->
-<div class="preview-backdrop" id="previewBackdrop" onclick="cancelPreview()"></div>
-<div class="preview-sheet" id="previewSheet">
-  <div class="preview-handle"></div>
-  <div class="preview-header">
-    <div class="preview-title">Heard this — look right?</div>
-    <div class="preview-transcript" id="previewTranscript"></div>
+<!-- Shared backdrop -->
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+
+<!-- Voice Preview Sheet -->
+<div class="bottom-sheet" id="previewSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <span class="sheet-title">Heard this — look right?</span>
+    <button class="sheet-close" onclick="cancelPreview()">×</button>
   </div>
+  <div class="preview-transcript" id="previewTranscript"></div>
   <div class="preview-items" id="previewItems"></div>
-  <div class="preview-footer">
-    <button class="preview-cancel-btn" onclick="cancelPreview()">Discard</button>
-    <button class="preview-confirm-btn" id="previewConfirmBtn" onclick="confirmPreview()">Add to list</button>
+  <div class="sheet-footer">
+    <button class="sheet-cancel-btn" onclick="cancelPreview()">Discard</button>
+    <button class="sheet-confirm-btn" id="previewConfirmBtn" onclick="confirmPreview()">Add to list</button>
   </div>
+</div>
+
+<!-- Tag Picker Sheet -->
+<div class="bottom-sheet" id="tagPickerSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <span class="sheet-title" id="tagPickerTitle">Tag item</span>
+    <button class="sheet-close" onclick="closeTagPicker()">×</button>
+  </div>
+  <div class="tag-picker-body" id="tagPickerBody"></div>
 </div>
 
 <script>
@@ -297,24 +347,171 @@ function categorize(name) {
   return 'pantry';
 }
 
-let items = [], history = [], activeFilter = 'all', currentTab = 'list';
+let items = [], history = [], recipeTags = [], activeFilter = 'all', currentTab = 'list';
 let recognition = null, isRecording = false, userStoppedRecording = false;
 let accumulatedTranscript = '';
+let previewParsed = [], previewRemoved = new Set();
+let tagPickerItemId = null; // which item we're tagging
+let activeSheet = null; // 'preview' | 'tagPicker'
 
-// ── Preview state ──
-let previewParsed = [];
-let previewRemoved = new Set();
-
+// ── Persistence ──
 function load() {
   try { items = JSON.parse(localStorage.getItem('gco_items') || '[]'); } catch { items = []; }
   try { history = JSON.parse(localStorage.getItem('gco_history') || '[]'); } catch { history = []; }
+  try { recipeTags = JSON.parse(localStorage.getItem('gco_tags') || '[]'); } catch { recipeTags = []; }
   const key = localStorage.getItem('gco_apikey');
   if (key) document.getElementById('apiKeyInput').value = key;
-  renderAll(); updateFilters();
+  renderAll(); updateFilters(); renderTagManager();
 }
 function save() { localStorage.setItem('gco_items', JSON.stringify(items)); }
 function saveHistory() { localStorage.setItem('gco_history', JSON.stringify(history)); }
+function saveTags() { localStorage.setItem('gco_tags', JSON.stringify(recipeTags)); }
 
+// ── All known tags (from items + saved tags, deduplicated) ──
+function allTags() {
+  const fromItems = items.filter(i => i.recipe).map(i => i.recipe);
+  return [...new Set([...recipeTags, ...fromItems])].filter(Boolean).sort();
+}
+
+// ── Tag manager (Settings) ──
+function renderTagManager() {
+  const list = document.getElementById('tagManagerList');
+  const tags = allTags();
+  if (tags.length === 0) {
+    list.innerHTML = '<div style="font-size:13px;color:var(--hint);padding:4px 0;">No tags yet.</div>';
+    return;
+  }
+  list.innerHTML = tags.map(t => `
+    <div class="tag-manager-row">
+      <input class="tag-manager-name" value="${esc(t)}" onchange="renameTag('${esc(t)}', this.value)" />
+      <button class="tag-manager-del" onclick="deleteTag('${esc(t)}')" title="Delete tag">×</button>
+    </div>
+  `).join('');
+}
+
+function addTagFromSettings() {
+  const input = document.getElementById('tagAddInput');
+  const name = input.value.trim();
+  if (!name) return;
+  if (!recipeTags.includes(name)) { recipeTags.push(name); saveTags(); }
+  input.value = '';
+  renderTagManager(); updateFilters();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('tagAddInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTagFromSettings(); });
+});
+
+function renameTag(oldName, newName) {
+  newName = newName.trim();
+  if (!newName || newName === oldName) return;
+  // Update saved tags list
+  const idx = recipeTags.indexOf(oldName);
+  if (idx !== -1) recipeTags[idx] = newName;
+  else if (!recipeTags.includes(newName)) recipeTags.push(newName);
+  // Update all items using old tag
+  items.forEach(i => { if (i.recipe === oldName) i.recipe = newName; });
+  history.forEach(h => { if (h.recipe === oldName) h.recipe = newName; });
+  saveTags(); save(); saveHistory();
+  if (activeFilter === oldName) activeFilter = newName;
+  renderTagManager(); updateFilters(); renderAll();
+}
+
+function deleteTag(name) {
+  recipeTags = recipeTags.filter(t => t !== name);
+  // Remove from items (don't delete items, just clear recipe)
+  items.forEach(i => { if (i.recipe === name) i.recipe = null; });
+  save(); saveTags();
+  if (activeFilter === name) activeFilter = 'all';
+  renderTagManager(); updateFilters(); renderAll();
+}
+
+// ── Tag picker sheet ──
+function openTagPicker(itemId) {
+  tagPickerItemId = itemId;
+  const item = items.find(i => i.id == itemId);
+  if (!item) return;
+  document.getElementById('tagPickerTitle').textContent = `Tag “${item.name}”`;
+  renderTagPickerBody(item);
+  openSheet('tagPicker');
+}
+
+function renderTagPickerBody(item) {
+  const tags = allTags();
+  const current = item.recipe || null;
+  let html = '';
+
+  // Clear option
+  html += `<div class="tag-picker-item${!current ? ' selected' : ''}" onclick="applyTag(null)">
+    <span class="tag-picker-label${!current ? '' : ''}" style="${!current ? 'color:var(--tag-text);font-weight:600;' : 'color:var(--hint);font-style:italic;'}">No tag</span>
+    ${!current ? '<span class="tag-picker-check">✓</span>' : ''}
+  </div>`;
+
+  if (tags.length > 0) {
+    html += '<div class="tag-picker-divider">Your tags</div>';
+    tags.forEach(t => {
+      const sel = current === t;
+      html += `<div class="tag-picker-item${sel ? ' selected' : ''}" onclick="applyTag('${esc(t)}')">
+        <span class="tag-picker-label">${esc(t)}</span>
+        ${sel ? '<span class="tag-picker-check">✓</span>' : ''}
+      </div>`;
+    });
+  }
+
+  // Inline create
+  html += `<div class="tag-new-row">
+    <input class="tag-new-input" id="tagNewInput" type="text" placeholder="Create new tag…" autocomplete="off" />
+    <button class="tag-new-btn" onclick="createAndApplyTag()">+ Create</button>
+  </div>`;
+
+  document.getElementById('tagPickerBody').innerHTML = html;
+  // Enter key in inline input
+  setTimeout(() => {
+    const inp = document.getElementById('tagNewInput');
+    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') createAndApplyTag(); });
+  }, 50);
+}
+
+function applyTag(tagName) {
+  const item = items.find(i => i.id == tagPickerItemId);
+  if (!item) return;
+  item.recipe = tagName || null;
+  save();
+  closeTagPicker();
+  updateFilters(); renderAll();
+}
+
+function createAndApplyTag() {
+  const inp = document.getElementById('tagNewInput');
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return;
+  if (!recipeTags.includes(name)) { recipeTags.push(name); saveTags(); }
+  applyTag(name);
+}
+
+function closeTagPicker() {
+  closeSheet();
+  tagPickerItemId = null;
+}
+
+// ── Sheet management ──
+function openSheet(which) {
+  activeSheet = which;
+  const backdrop = document.getElementById('sheetBackdrop');
+  backdrop.classList.add('visible');
+  backdrop.onclick = () => {
+    if (which === 'preview') cancelPreview();
+    else closeTagPicker();
+  };
+  document.getElementById(which === 'preview' ? 'previewSheet' : 'tagPickerSheet').classList.add('visible');
+}
+function closeSheet() {
+  document.getElementById('sheetBackdrop').classList.remove('visible');
+  document.getElementById('previewSheet').classList.remove('visible');
+  document.getElementById('tagPickerSheet').classList.remove('visible');
+  activeSheet = null;
+}
+
+// ── Claude ──
 async function parseWithClaude(text) {
   const key = localStorage.getItem('gco_apikey');
   if (!key) return null;
@@ -343,10 +540,6 @@ Examples:
   const raw = data.content.map(b => b.text || '').join('').trim();
   const clean = raw.replace(/```json|```/g, '').trim();
   const parsed = JSON.parse(clean);
-  if (Array.isArray(parsed) && parsed.length === 1) {
-    const name = (parsed[0].name || '').toLowerCase();
-    if (/\band\b|,/.test(name)) console.warn('Claude did not split items correctly:', parsed[0].name);
-  }
   return parsed;
 }
 
@@ -368,9 +561,7 @@ function onManualInput() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('catSelect').addEventListener('change', function() {
-    this.classList.remove('auto-set');
-  });
+  document.getElementById('catSelect').addEventListener('change', function() { this.classList.remove('auto-set'); });
 });
 
 async function handleAdd() {
@@ -379,73 +570,45 @@ async function handleAdd() {
   if (!text) return;
   const sel = getCatSelect();
   const manualCat = (sel.value && sel.value !== 'auto') ? sel.value : null;
-  input.value = '';
-  resetCatSelect();
+  input.value = ''; resetCatSelect();
   await parseAndAdd(text, manualCat, false);
 }
 
+// ── Voice ──
 function startRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-
+  recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US';
   const mic = document.getElementById('micBtn');
   let sessionTranscript = '';
-
-  recognition.onstart = () => {
-    isRecording = true;
-    mic.classList.add('recording');
-    // Show accumulated so far (could be non-empty on restart)
-    const display = accumulatedTranscript || '…';
-    setStatus(`“${display}”`, 'voice');
-  };
-
+  recognition.onstart = () => { isRecording = true; mic.classList.add('recording'); setStatus(`“${accumulatedTranscript || '…'}”`, 'voice'); };
   recognition.onresult = e => {
-    // Build the transcript for this session from all results so far
     sessionTranscript = '';
     for (const r of e.results) sessionTranscript += r[0].transcript;
     const full = (accumulatedTranscript ? accumulatedTranscript + ' ' : '') + sessionTranscript;
     setStatus(`“${full}”`, 'voice');
   };
-
   recognition.onend = () => {
-    // Commit whatever this session captured before it ended
     if (sessionTranscript.trim()) {
       accumulatedTranscript = (accumulatedTranscript ? accumulatedTranscript + ' ' : '') + sessionTranscript.trim();
       sessionTranscript = '';
     }
-
     if (userStoppedRecording) {
-      // User tapped the button — finish up
-      isRecording = false;
-      mic.classList.remove('recording');
-      const text = accumulatedTranscript.trim();
-      accumulatedTranscript = '';
+      isRecording = false; mic.classList.remove('recording');
+      const text = accumulatedTranscript.trim(); accumulatedTranscript = '';
       if (!text) { setStatus('', ''); return; }
-      setStatus('Processing…', 'thinking');
-      resetCatSelect();
+      setStatus('Processing…', 'thinking'); resetCatSelect();
       setTimeout(() => parseAndAdd(text, null, true), 300);
     } else {
-      // Browser cut us off (silence timeout) — restart transparently
       setTimeout(() => { if (isRecording) startRecognition(); }, 100);
     }
   };
-
   recognition.onerror = e => {
-    if (e.error === 'no-speech') {
-      // Restart silently on no-speech; it's not a real error
-      return;
-    }
-    isRecording = false;
-    userStoppedRecording = false;
-    accumulatedTranscript = '';
+    if (e.error === 'no-speech') return;
+    isRecording = false; userStoppedRecording = false; accumulatedTranscript = '';
     mic.classList.remove('recording');
-    setStatus('Voice error — try again', 'error');
-    setTimeout(() => setStatus('', ''), 2500);
+    setStatus('Voice error — try again', 'error'); setTimeout(() => setStatus('', ''), 2500);
   };
-
   recognition.start();
 }
 
@@ -454,51 +617,35 @@ function toggleVoice() {
     setStatus('Voice not supported — use Chrome or Safari', 'error');
     setTimeout(() => setStatus('', ''), 3000); return;
   }
-  if (isRecording) {
-    // User tapped to stop — flag it before calling stop() so onend knows
-    userStoppedRecording = true;
-    recognition.stop();
-  } else {
-    userStoppedRecording = false;
-    accumulatedTranscript = '';
-    startRecognition();
-  }
+  if (isRecording) { userStoppedRecording = true; recognition.stop(); }
+  else { userStoppedRecording = false; accumulatedTranscript = ''; startRecognition(); }
 }
 
-// showPreview=true for voice; false for manual (instant add)
 async function parseAndAdd(text, manualCat = null, showPreview = false) {
   const btn = document.getElementById('addBtn');
   btn.classList.add('loading'); btn.textContent = '…';
-  let parsed = null;
   const hasKey = !!localStorage.getItem('gco_apikey');
   if (!hasKey) {
     setStatus('⚠ No API key — enter it in Settings', 'error');
     setTimeout(() => setStatus('', ''), 4000);
-    btn.classList.remove('loading'); btn.textContent = 'Add';
-    return;
+    btn.classList.remove('loading'); btn.textContent = 'Add'; return;
   }
   setStatus('<span class="dot-anim">Parsing</span>', 'thinking');
+  let parsed = null;
   try { parsed = await parseWithClaude(text); }
   catch(e) {
     console.error('Claude parse error:', e);
     setStatus('⚠ ' + e.message, 'error');
     setTimeout(() => setStatus('', ''), 5000);
-    btn.classList.remove('loading'); btn.textContent = 'Add';
-    return;
+    btn.classList.remove('loading'); btn.textContent = 'Add'; return;
   }
   btn.classList.remove('loading'); btn.textContent = 'Add';
   if (!parsed || parsed.length === 0) {
     setStatus('⚠ Could not parse items — try rephrasing', 'error');
-    setTimeout(() => setStatus('', ''), 4000);
-    return;
+    setTimeout(() => setStatus('', ''), 4000); return;
   }
-
-  if (showPreview) {
-    setStatus('', '');
-    openPreview(text, parsed, manualCat);
-  } else {
-    commitItems(parsed, manualCat);
-  }
+  if (showPreview) { setStatus('', ''); openPreview(text, parsed, manualCat); }
+  else { commitItems(parsed, manualCat); }
 }
 
 function commitItems(parsed, manualCat) {
@@ -506,25 +653,24 @@ function commitItems(parsed, manualCat) {
   parsed.forEach(p => {
     if (!p.name || p.name.length < 1) return;
     const cat = manualCat || p.category || categorize(p.name);
+    // If a new recipe tag came back from Claude, add it to recipeTags
+    if (p.recipe && !recipeTags.includes(p.recipe)) { recipeTags.push(p.recipe); saveTags(); }
     items.unshift({ id: Date.now() + Math.random(), name: p.name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: cat, checked: false, addedAt: new Date().toISOString() });
     added.push(p.name);
   });
   save();
   if (added.length > 0) { setStatus(`✓ Added: ${added.join(', ')}`, 'thinking'); setTimeout(() => setStatus('', ''), 3000); }
   else setStatus('', '');
-  renderAll(); updateFilters(); updateCount();
+  renderAll(); updateFilters(); updateCount(); renderTagManager();
 }
 
-// ── Preview sheet ──
+// ── Voice preview sheet ──
 function openPreview(transcript, parsed, manualCat) {
   previewParsed = parsed.map(p => ({ ...p, _manualCat: manualCat }));
   previewRemoved = new Set();
-
   document.getElementById('previewTranscript').textContent = `“${transcript}”`;
   renderPreviewItems();
-
-  document.getElementById('previewBackdrop').classList.add('visible');
-  document.getElementById('previewSheet').classList.add('visible');
+  openSheet('preview');
 }
 
 function renderPreviewItems() {
@@ -533,12 +679,11 @@ function renderPreviewItems() {
   const activeCount = previewParsed.length - previewRemoved.size;
   confirmBtn.disabled = activeCount === 0;
   confirmBtn.textContent = activeCount === 1 ? 'Add 1 item' : `Add ${activeCount} items`;
-
   container.innerHTML = previewParsed.map((p, i) => {
     const cat = p._manualCat || p.category || categorize(p.name);
     const icon = CATS[cat]?.icon || '•';
     const removed = previewRemoved.has(i);
-    return `<div class="preview-item${removed ? ' removed' : ''}" id="pi${i}">
+    return `<div class="preview-item${removed ? ' removed' : ''}">
       <div class="preview-item-icon">${icon}</div>
       <div class="preview-item-body">
         <div class="preview-item-name">${esc(p.name)}</div>
@@ -550,38 +695,24 @@ function renderPreviewItems() {
       </div>
       ${removed
         ? `<button class="preview-remove-btn undo" onclick="undoRemovePreviewItem(${i})">Undo</button>`
-        : `<button class="preview-remove-btn" onclick="removePreviewItem(${i})" title="Remove">×</button>`
-      }
+        : `<button class="preview-remove-btn" onclick="removePreviewItem(${i})" title="Remove">×</button>`}
     </div>`;
   }).join('');
 }
 
-function removePreviewItem(i) {
-  previewRemoved.add(i);
-  renderPreviewItems();
-}
-function undoRemovePreviewItem(i) {
-  previewRemoved.delete(i);
-  renderPreviewItems();
-}
-
-function closePreview() {
-  document.getElementById('previewBackdrop').classList.remove('visible');
-  document.getElementById('previewSheet').classList.remove('visible');
-}
-function cancelPreview() {
-  closePreview();
-  setStatus('', '');
-}
+function removePreviewItem(i) { previewRemoved.add(i); renderPreviewItems(); }
+function undoRemovePreviewItem(i) { previewRemoved.delete(i); renderPreviewItems(); }
+function cancelPreview() { closeSheet(); setStatus('', ''); }
 function confirmPreview() {
   const toAdd = previewParsed.filter((_, i) => !previewRemoved.has(i));
   const manualCat = toAdd[0]?._manualCat || null;
-  closePreview();
+  closeSheet();
   commitItems(toAdd, manualCat);
 }
 
 document.getElementById('mainInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleAdd(); });
 
+// ── List actions ──
 function toggleCheck(id) {
   const item = items.find(i => i.id == id);
   if (!item) return;
@@ -606,10 +737,10 @@ function setFilter(f, el) {
   renderList();
 }
 function updateFilters() {
-  const recipes = [...new Set(items.filter(i => i.recipe).map(i => i.recipe))];
+  const tags = allTags();
   const bar = document.getElementById('filterBar');
   bar.innerHTML = `<button class="filter-chip ${activeFilter==='all'?'active':''}" onclick="setFilter('all',this)">All</button>`;
-  recipes.forEach(r => {
+  tags.forEach(r => {
     const chip = document.createElement('button');
     chip.className = `filter-chip${activeFilter===r?' active':''}`;
     chip.textContent = r; chip.title = r;
@@ -656,13 +787,21 @@ function renderList() {
 
 function itemCard(item) {
   const checked = item.checked;
-  return `<div class="item-card${checked?' checked':''}" id="ic${item.id}">
+  const tagBtn = item.recipe
+    ? `<span class="recipe-pill" onclick="openTagPicker(${item.id})" title="Change tag">🍽 ${esc(item.recipe)}</span>`
+    : `<button class="tag-btn" onclick="openTagPicker(${item.id})">+ tag</button>`;
+  return `<div class="item-card${checked?' checked':''}">
     <div class="check-circle${checked?' done':''}" onclick="toggleCheck(${item.id})">
       <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5l3.5 3.5L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <div class="item-body">
       <div class="item-name">${esc(item.name)}</div>
-      ${(item.qty||item.recipe||item.note)?`<div class="item-sub">${item.qty?`<span class="qty-pill">${esc(item.qty)}</span>`:''}${item.recipe?`<span class="recipe-pill">🍽 ${esc(item.recipe)}</span>`:''}${item.note?`<span class="note-pill">${esc(item.note)}</span>`:''}</div>`:''}</div>
+      <div class="item-sub">
+        ${item.qty ? `<span class="qty-pill">${esc(item.qty)}</span>` : ''}
+        ${tagBtn}
+        ${item.note ? `<span class="note-pill">${esc(item.note)}</span>` : ''}
+      </div>
+    </div>
     <button class="del-btn" onclick="deleteItem(${item.id})">×</button>
   </div>`;
 }
@@ -690,7 +829,7 @@ function renderHistory() {
   container.innerHTML = html;
 }
 
-function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
 
 function switchTab(t) {
   currentTab = t;
@@ -698,6 +837,7 @@ function switchTab(t) {
     document.getElementById('tab-'+id).style.display = id===t ? (id==='list'?'flex':'block') : 'none';
   });
   document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['list','history','settings'][i]===t));
+  if (t === 'settings') renderTagManager();
 }
 
 function saveApiKey() {
@@ -707,9 +847,9 @@ function saveApiKey() {
 }
 function nukeData() {
   if (!confirm('Delete all grocery data? This cannot be undone.')) return;
-  localStorage.removeItem('gco_items'); localStorage.removeItem('gco_history');
-  items = []; history = [];
-  renderAll(); updateFilters(); updateCount(); switchTab('list');
+  localStorage.removeItem('gco_items'); localStorage.removeItem('gco_history'); localStorage.removeItem('gco_tags');
+  items = []; history = []; recipeTags = [];
+  renderAll(); updateFilters(); updateCount(); renderTagManager(); switchTab('list');
 }
 
 load();
