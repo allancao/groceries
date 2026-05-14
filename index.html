@@ -171,16 +171,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .sheet-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .sheet-close { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--surface2); color: var(--muted); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-/* ── Voice preview sheet ── */
-.preview-transcript { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 7px 10px; border-radius: 8px; line-height: 1.5; margin: 10px 16px 0; white-space: pre-line; max-height: 90px; overflow-y: auto; }
-.preview-items { max-height: 40vh; overflow-y: auto; padding: 10px 16px; }
-.preview-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 8px; border: 0.5px solid var(--border); }
-.preview-item.removed { opacity: 0.35; }
+/* ── Preview sheet ── */
+.preview-transcript { font-size: 12px; color: var(--hint); font-style: italic; line-height: 1.5; margin: 8px 16px 0; padding: 8px 12px; background: var(--surface2); border-radius: var(--radius-sm); white-space: pre-line; max-height: 80px; overflow-y: auto; }
+.preview-items { max-height: 42vh; overflow-y: auto; padding: 10px 16px; }
+.preview-item { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 13px 14px; margin-bottom: 9px; display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--shadow); transition: opacity 0.2s; }
+.preview-item.removed { opacity: 0.4; box-shadow: none; background: var(--surface2); }
 .preview-item-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; padding-top: 2px; }
 .preview-item-body { flex: 1; min-width: 0; }
-.preview-item-name { font-size: 15px; font-family: var(--font); color: var(--text); }
+.preview-item-name { font-size: 17px; font-family: var(--font); color: var(--text); line-height: 1.25; word-break: break-word; }
 .preview-item-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
-.preview-remove-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; margin: -6px -6px -6px 0; }
+.preview-remove-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; margin: -6px -6px -6px 0; }
 .preview-remove-btn:active { background: #fee2e2; color: #ef4444; }
 .preview-remove-btn.undo { color: var(--accent); font-size: 13px; font-weight: 600; width: auto; height: auto; padding: 8px 12px; border-radius: 8px; background: var(--accent-light); margin: 0; }
 .sheet-footer { display: flex; gap: 8px; padding: 10px 16px 4px; }
@@ -205,22 +205,23 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .tag-new-btn { padding: 9px 14px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); white-space: nowrap; }
 
 /* ── Preview recipe tagging ── */
-.preview-tag-all { padding: 10px 16px 10px; border-bottom: 0.5px solid var(--border); }
-.preview-tag-all-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--hint); font-weight: 600; margin-bottom: 8px; }
-.preview-tag-chips { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
-.preview-tag-chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid var(--border2); background: var(--surface2); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; }
+.preview-tag-all { padding: 10px 16px; border-bottom: 0.5px solid var(--border); }
+.preview-tag-all-label { font-size: 11px; letter-spacing: 0.9px; text-transform: uppercase; color: var(--hint); font-weight: 600; margin-bottom: 8px; }
+.preview-tag-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.preview-tag-chip { flex-shrink: 0; padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface2); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.15s; white-space: nowrap; }
 .preview-tag-chip.on { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); font-weight: 600; }
 .preview-new-tag-inline { display: block; width: 100%; margin-top: 8px; padding: 9px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 14px; font-family: var(--font-ui); outline: none; }
 .preview-new-tag-inline:focus { border-color: var(--accent); }
 .preview-new-tag-inline::placeholder { color: var(--hint); }
-.preview-inline-picker { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.preview-inline-picker { background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
 .preview-inline-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.preview-inline-chip { flex-shrink: 0; padding: 6px 13px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid var(--border2); background: var(--surface2); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; }
+.preview-inline-chip { flex-shrink: 0; padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.15s; white-space: nowrap; }
 .preview-inline-chip.on { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); font-weight: 600; }
-.preview-inline-input { width: 100%; padding: 8px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 13px; font-family: var(--font-ui); outline: none; }
+.preview-inline-input { width: 100%; padding: 8px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface); color: var(--text); font-size: 13px; font-family: var(--font-ui); outline: none; }
 .preview-inline-input:focus { border-color: var(--accent); }
 .preview-inline-input::placeholder { color: var(--hint); }
-.preview-tag-btn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border2); background: var(--surface); color: var(--muted); font-size: 12px; font-family: var(--font-ui); cursor: pointer; transition: all 0.12s; }
+.preview-tag-btn { font-size: 11px; color: var(--hint); background: var(--surface2); border: 0.5px dashed var(--border2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); cursor: pointer; transition: all 0.15s; }
+.preview-tag-btn:active { border-color: var(--tag-border); color: var(--tag-text); }
 </style>
 </head>
 <body>
@@ -497,7 +498,8 @@ function applyTag(tagName) {
   item.recipe = tagName || null;
   save();
   closeTagPicker();
-  updateFilters(); renderAll();
+  pruneUnusedTags();
+  updateFilters(); renderAll(); renderTagManager();
 }
 
 function createAndApplyTag() {
@@ -511,6 +513,15 @@ function createAndApplyTag() {
 function closeTagPicker() {
   closeSheet();
   tagPickerItemId = null;
+}
+
+// ── Tag pruning ──
+function pruneUnusedTags() {
+  const usedInItems = new Set(items.filter(i => i.recipe).map(i => i.recipe));
+  const usedInHistory = new Set(history.filter(h => h.recipe).map(h => h.recipe));
+  recipeTags = recipeTags.filter(t => usedInItems.has(t) || usedInHistory.has(t));
+  if (activeFilter !== 'all' && !recipeTags.includes(activeFilter)) activeFilter = 'all';
+  saveTags();
 }
 
 // ── Sheet management ──
@@ -824,8 +835,8 @@ function toggleCheck(id) {
   if (item.checked) { history.unshift({ ...item, boughtAt: new Date().toISOString() }); saveHistory(); }
   save(); renderAll(); updateCount();
 }
-function deleteItem(id) { items = items.filter(i => i.id != id); save(); renderAll(); updateFilters(); updateCount(); }
-function clearChecked() { items = items.filter(i => !i.checked); save(); renderAll(); updateCount(); }
+function deleteItem(id) { items = items.filter(i => i.id != id); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
+function clearChecked() { items = items.filter(i => !i.checked); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
 function clearHistory() { history = []; saveHistory(); renderHistory(); }
 function restoreItem(boughtAt) {
   const h = history.find(i => i.boughtAt === boughtAt);
