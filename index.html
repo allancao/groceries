@@ -497,7 +497,8 @@ function applyTag(tagName) {
   item.recipe = tagName || null;
   save();
   closeTagPicker();
-  updateFilters(); renderAll();
+  pruneUnusedTags();
+  updateFilters(); renderAll(); renderTagManager();
 }
 
 function createAndApplyTag() {
@@ -511,6 +512,15 @@ function createAndApplyTag() {
 function closeTagPicker() {
   closeSheet();
   tagPickerItemId = null;
+}
+
+// ── Tag pruning ──
+function pruneUnusedTags() {
+  const usedInItems = new Set(items.filter(i => i.recipe).map(i => i.recipe));
+  const usedInHistory = new Set(history.filter(h => h.recipe).map(h => h.recipe));
+  recipeTags = recipeTags.filter(t => usedInItems.has(t) || usedInHistory.has(t));
+  if (activeFilter !== 'all' && !recipeTags.includes(activeFilter)) activeFilter = 'all';
+  saveTags();
 }
 
 // ── Sheet management ──
@@ -824,8 +834,8 @@ function toggleCheck(id) {
   if (item.checked) { history.unshift({ ...item, boughtAt: new Date().toISOString() }); saveHistory(); }
   save(); renderAll(); updateCount();
 }
-function deleteItem(id) { items = items.filter(i => i.id != id); save(); renderAll(); updateFilters(); updateCount(); }
-function clearChecked() { items = items.filter(i => !i.checked); save(); renderAll(); updateCount(); }
+function deleteItem(id) { items = items.filter(i => i.id != id); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
+function clearChecked() { items = items.filter(i => !i.checked); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
 function clearHistory() { history = []; saveHistory(); renderHistory(); }
 function restoreItem(boughtAt) {
   const h = history.find(i => i.boughtAt === boughtAt);
