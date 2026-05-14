@@ -563,23 +563,37 @@ function makeShortTag(name) {
 }
 
 async function fetchPageHtml(url) {
-  try {
+  const timed = (fn, ms) => {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const r = await fetch(url, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (r.ok) return await r.text();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    return fn(ctrl.signal).finally(() => clearTimeout(t));
+  };
+
+  // 1. Direct fetch (works when site allows CORS)
+  try {
+    return await timed(sig =>
+      fetch(url, { signal: sig }).then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    , 8000);
   } catch {}
-  // Fall back to CORS proxy
-  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-  const ctrl2 = new AbortController();
-  const t2 = setTimeout(() => ctrl2.abort(), 15000);
-  const r2 = await fetch(proxy, { signal: ctrl2.signal });
-  clearTimeout(t2);
-  if (!r2.ok) throw new Error('Could not reach that page');
-  const data = await r2.json();
-  if (!data.contents) throw new Error('Empty response from page');
-  return data.contents;
+
+  // 2. allorigins.win proxy
+  try {
+    return await timed(sig =>
+      fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: sig })
+        .then(r => r.json())
+        .then(d => { if (!d.contents) throw new Error(); return d.contents; })
+    , 15000);
+  } catch {}
+
+  // 3. corsproxy.io proxy
+  try {
+    return await timed(sig =>
+      fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, { signal: sig })
+        .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    , 15000);
+  } catch {}
+
+  throw new Error('Could not fetch — try pasting the ingredient list directly');
 }
 
 function extractRecipeJsonLd(html) {
@@ -632,8 +646,8 @@ async function parseRecipeUrl(url) {
   try { html = await fetchPageHtml(url); }
   catch(e) {
     btn.classList.remove('loading'); btn.textContent = 'Add';
-    setStatus('⚠ Could not fetch that page', 'error');
-    setTimeout(() => setStatus('', ''), 4000); return;
+    setStatus('⚠ ' + e.message, 'error');
+    setTimeout(() => setStatus('', ''), 6000); return;
   }
 
   let recipeName = null, ingredientText = null;
