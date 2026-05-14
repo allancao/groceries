@@ -172,17 +172,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .sheet-close { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--surface2); color: var(--muted); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
 /* ── Voice preview sheet ── */
-.preview-transcript { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 7px 10px; border-radius: 8px; line-height: 1.45; margin: 10px 16px 0; }
-.preview-items { max-height: 38vh; overflow-y: auto; padding: 10px 16px; }
-.preview-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 7px; border: 0.5px solid var(--border); }
+.preview-transcript { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 7px 10px; border-radius: 8px; line-height: 1.5; margin: 10px 16px 0; white-space: pre-line; max-height: 90px; overflow-y: auto; }
+.preview-items { max-height: 40vh; overflow-y: auto; padding: 10px 16px; }
+.preview-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 8px; border: 0.5px solid var(--border); }
 .preview-item.removed { opacity: 0.35; }
-.preview-item-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+.preview-item-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; padding-top: 2px; }
 .preview-item-body { flex: 1; min-width: 0; }
 .preview-item-name { font-size: 15px; font-family: var(--font); color: var(--text); }
-.preview-item-meta { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 3px; }
-.preview-remove-btn { width: 28px; height: 28px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+.preview-item-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
+.preview-remove-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; margin: -6px -6px -6px 0; }
 .preview-remove-btn:active { background: #fee2e2; color: #ef4444; }
-.preview-remove-btn.undo { color: var(--accent); font-size: 13px; font-weight: 600; width: auto; padding: 0 6px; border-radius: 6px; background: var(--accent-light); }
+.preview-remove-btn.undo { color: var(--accent); font-size: 13px; font-weight: 600; width: auto; height: auto; padding: 8px 12px; border-radius: 8px; background: var(--accent-light); margin: 0; }
 .sheet-footer { display: flex; gap: 8px; padding: 10px 16px 4px; }
 .sheet-cancel-btn { flex: 1; padding: 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--muted); font-size: 15px; font-weight: 500; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; }
 .sheet-confirm-btn { flex: 2; padding: 12px; border-radius: var(--radius-sm); border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; }
@@ -205,20 +205,22 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .tag-new-btn { padding: 9px 14px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); white-space: nowrap; }
 
 /* ── Preview recipe tagging ── */
-.preview-tag-all { padding: 9px 16px 8px; border-bottom: 0.5px solid var(--border); }
-.preview-tag-all-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--hint); font-weight: 600; margin-bottom: 7px; }
-.preview-tag-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.preview-tag-chip { flex-shrink: 0; padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; }
-.preview-tag-chip.on { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); }
-.preview-new-tag-inline { flex: 1; min-width: 80px; max-width: 140px; padding: 4px 10px; border-radius: 20px; border: 0.5px dashed var(--border2); background: transparent; color: var(--text); font-size: 12px; font-family: var(--font-ui); outline: none; }
-.preview-new-tag-inline:focus { border-color: var(--accent); border-style: solid; }
+.preview-tag-all { padding: 10px 16px 10px; border-bottom: 0.5px solid var(--border); }
+.preview-tag-all-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--hint); font-weight: 600; margin-bottom: 8px; }
+.preview-tag-chips { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.preview-tag-chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid var(--border2); background: var(--surface2); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; }
+.preview-tag-chip.on { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); font-weight: 600; }
+.preview-new-tag-inline { display: block; width: 100%; margin-top: 8px; padding: 9px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 14px; font-family: var(--font-ui); outline: none; }
+.preview-new-tag-inline:focus { border-color: var(--accent); }
 .preview-new-tag-inline::placeholder { color: var(--hint); }
-.preview-inline-picker { background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 8px; margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
-.preview-inline-chip { flex-shrink: 0; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; }
-.preview-inline-chip.on { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); }
-.preview-inline-input { flex: 1; min-width: 60px; max-width: 120px; padding: 2px 7px; border-radius: 12px; border: 0.5px dashed var(--border2); background: transparent; color: var(--text); font-size: 11px; font-family: var(--font-ui); outline: none; }
-.preview-inline-input:focus { border-color: var(--accent); border-style: solid; }
+.preview-inline-picker { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.preview-inline-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.preview-inline-chip { flex-shrink: 0; padding: 6px 13px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid var(--border2); background: var(--surface2); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; }
+.preview-inline-chip.on { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); font-weight: 600; }
+.preview-inline-input { width: 100%; padding: 8px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 13px; font-family: var(--font-ui); outline: none; }
+.preview-inline-input:focus { border-color: var(--accent); }
 .preview-inline-input::placeholder { color: var(--hint); }
+.preview-tag-btn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border2); background: var(--surface); color: var(--muted); font-size: 12px; font-family: var(--font-ui); cursor: pointer; transition: all 0.12s; }
 </style>
 </head>
 <body>
@@ -708,8 +710,8 @@ function renderPreviewTagAll() {
   tags.forEach(t => {
     html += `<span class=”preview-tag-chip${commonTag === t ? ' on' : ''}” onclick=”setAllPreviewRecipe('${esc(t)}')”>${esc(t)}</span>`;
   });
-  html += `<input class=”preview-new-tag-inline” placeholder=”New recipe…” onkeydown=”if(event.key==='Enter'&&this.value.trim()){addAndSetAllPreviewTag(this.value);this.value='';}” />`;
   html += `</div>`;
+  html += `<input class=”preview-new-tag-inline” placeholder=”New recipe name…” onkeydown=”if(event.key==='Enter'&&this.value.trim()){addAndSetAllPreviewTag(this.value);this.value='';}” />`;
   bar.innerHTML = html;
 }
 
@@ -743,12 +745,14 @@ function renderPreviewItems() {
 
     const tagHtml = recipe
       ? `<span class=”recipe-pill” onclick=”togglePreviewInlinePicker(${i})” style=”cursor:pointer;”>🍽 ${esc(recipe)}</span>`
-      : `<button class=”tag-btn” onclick=”togglePreviewInlinePicker(${i})”>🏷 tag</button>`;
+      : `<button class=”preview-tag-btn” onclick=”togglePreviewInlinePicker(${i})”>+ tag</button>`;
 
     const pickerHtml = showPicker ? `<div class=”preview-inline-picker”>
-        <span class=”preview-inline-chip${!recipe ? ' on' : ''}” onclick=”setPreviewItemRecipe(${i},null)”>None</span>
-        ${tags.map(t => `<span class=”preview-inline-chip${recipe===t?' on':''}” onclick=”setPreviewItemRecipe(${i},'${esc(t)}')”>${esc(t)}</span>`).join('')}
-        <input class=”preview-inline-input” placeholder=”New recipe…” onkeydown=”if(event.key==='Enter'&&this.value.trim()){addAndSetPreviewItemTag(${i},this.value);this.value='';}”>
+        <div class=”preview-inline-chips”>
+          <span class=”preview-inline-chip${!recipe ? ' on' : ''}” onclick=”setPreviewItemRecipe(${i},null)”>None</span>
+          ${tags.map(t => `<span class=”preview-inline-chip${recipe===t?' on':''}” onclick=”setPreviewItemRecipe(${i},'${esc(t)}')”>${esc(t)}</span>`).join('')}
+        </div>
+        <input class=”preview-inline-input” placeholder=”New recipe name…” onkeydown=”if(event.key==='Enter'&&this.value.trim()){addAndSetPreviewItemTag(${i},this.value);this.value='';}”>
       </div>` : '';
 
     return `<div class=”preview-item${removed ? ' removed' : ''}”>
