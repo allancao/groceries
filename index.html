@@ -749,6 +749,8 @@ RULES:
 2. Extract: the item NAME (what to buy), QUANTITY (amount + unit, e.g. "2 lbs", "1 medium", "6 cloves"), and CATEGORY.
 3. Ignore cooking instructions — do NOT include words like "chopped", "diced", "minced", "peeled", "sliced", "roughly chopped", "finely chopped", "to taste" etc. These are prep notes, not shopping info.
 4. Set "recipe": null and "note": null for all items.
+5. NAME formatting: use sentence case (capitalize only the first letter, e.g. "Yellow onion", "Olive oil"). Correct any ALL CAPS or weird casing.
+6. EMOJI: if there is a single universally-recognized emoji for this specific item, prepend it and a space to the name (e.g. "🧅 Yellow onion", "🍅 Tomatoes", "🧄 Garlic", "🫒 Olive oil"). Skip the emoji if unsure — do not force a generic one.
 
 Return ONLY a valid JSON array, no markdown:
 [{"name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": null, "note": null}]
@@ -778,13 +780,15 @@ CRITICAL RULES:
 4. If user mentions a dish/meal/goal (e.g. "for taco night", "to make carbonara"), set "recipe" on each extracted item.
 5. If user says "stuff for X" or "ingredients for X", infer 3-5 typical ingredients as separate objects.
 6. Input may be a formatted ingredient list (one item per line with quantities). Parse each line as its own object.
+7. NAME formatting: use sentence case (capitalize only the first letter, e.g. "Chicken thighs", "Bell peppers", "Olive oil"). Correct any ALL CAPS or weird casing.
+8. EMOJI: if there is a single universally-recognized emoji for this specific item, prepend it and a space to the name (e.g. "🍎 Apples", "🥛 Milk", "🥦 Broccoli", "🍞 Bread", "🧀 Cheese", "🥚 Eggs", "🍗 Chicken thighs"). Skip the emoji if unsure — do not force a generic one.
 
 Return ONLY a valid JSON array of objects, no markdown, no explanation.
 Each object: { "name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": string|null, "note": string|null }
 
 Examples:
-"add chicken thighs and milk" → [{"name":"Chicken thighs","qty":null,"category":"meat","recipe":null,"note":null},{"name":"Milk","qty":null,"category":"dairy","recipe":null,"note":null}]
-"2 lbs salmon and some spinach for my salad" → [{"name":"Salmon","qty":"2 lbs","category":"meat","recipe":"salad","note":null},{"name":"Spinach","qty":null,"category":"produce","recipe":"salad","note":null}]`;
+"add chicken thighs and milk" → [{"name":"🍗 Chicken thighs","qty":null,"category":"meat","recipe":null,"note":null},{"name":"🥛 Milk","qty":null,"category":"dairy","recipe":null,"note":null}]
+"2 lbs salmon and some spinach for my salad" → [{"name":"🐟 Salmon","qty":"2 lbs","category":"meat","recipe":"salad","note":null},{"name":"🥬 Spinach","qty":null,"category":"produce","recipe":"salad","note":null}]`;
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
