@@ -298,11 +298,12 @@ function categorize(name) {
 }
 
 let items = [], history = [], activeFilter = 'all', currentTab = 'list';
-let recognition = null, isRecording = false;
+let recognition = null, isRecording = false, userStoppedRecording = false;
+let accumulatedTranscript = '';
 
 // ── Preview state ──
-let previewParsed = [];   // full parsed array from Claude
-let previewRemoved = new Set(); // indices removed by user
+let previewParsed = [];
+let previewRemoved = new Set();
 
 function load() {
   try { items = JSON.parse(localStorage.getItem('gco_items') || '[]'); } catch { items = []; }
@@ -383,35 +384,85 @@ async function handleAdd() {
   await parseAndAdd(text, manualCat, false);
 }
 
+function startRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  const mic = document.getElementById('micBtn');
+  let sessionTranscript = '';
+
+  recognition.onstart = () => {
+    isRecording = true;
+    mic.classList.add('recording');
+    // Show accumulated so far (could be non-empty on restart)
+    const display = accumulatedTranscript || '…';
+    setStatus(`“${display}”`, 'voice');
+  };
+
+  recognition.onresult = e => {
+    // Build the transcript for this session from all results so far
+    sessionTranscript = '';
+    for (const r of e.results) sessionTranscript += r[0].transcript;
+    const full = (accumulatedTranscript ? accumulatedTranscript + ' ' : '') + sessionTranscript;
+    setStatus(`“${full}”`, 'voice');
+  };
+
+  recognition.onend = () => {
+    // Commit whatever this session captured before it ended
+    if (sessionTranscript.trim()) {
+      accumulatedTranscript = (accumulatedTranscript ? accumulatedTranscript + ' ' : '') + sessionTranscript.trim();
+      sessionTranscript = '';
+    }
+
+    if (userStoppedRecording) {
+      // User tapped the button — finish up
+      isRecording = false;
+      mic.classList.remove('recording');
+      const text = accumulatedTranscript.trim();
+      accumulatedTranscript = '';
+      if (!text) { setStatus('', ''); return; }
+      setStatus('Processing…', 'thinking');
+      resetCatSelect();
+      setTimeout(() => parseAndAdd(text, null, true), 300);
+    } else {
+      // Browser cut us off (silence timeout) — restart transparently
+      setTimeout(() => { if (isRecording) startRecognition(); }, 100);
+    }
+  };
+
+  recognition.onerror = e => {
+    if (e.error === 'no-speech') {
+      // Restart silently on no-speech; it's not a real error
+      return;
+    }
+    isRecording = false;
+    userStoppedRecording = false;
+    accumulatedTranscript = '';
+    mic.classList.remove('recording');
+    setStatus('Voice error — try again', 'error');
+    setTimeout(() => setStatus('', ''), 2500);
+  };
+
+  recognition.start();
+}
+
 function toggleVoice() {
   if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
     setStatus('Voice not supported — use Chrome or Safari', 'error');
     setTimeout(() => setStatus('', ''), 3000); return;
   }
-  if (isRecording) { recognition.stop(); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SR();
-  recognition.continuous = false; recognition.interimResults = true; recognition.lang = 'en-US';
-  const mic = document.getElementById('micBtn');
-  let bestTranscript = '';
-  recognition.onstart = () => { isRecording = true; mic.classList.add('recording'); setStatus('Listening…', 'voice'); };
-  recognition.onresult = e => {
-    let full = '';
-    for (const r of e.results) full += r[0].transcript;
-    bestTranscript = full;
-    setStatus(`"${full}"`, 'voice');
-  };
-  recognition.onend = () => {
-    isRecording = false; mic.classList.remove('recording');
-    const text = bestTranscript.trim();
-    bestTranscript = '';
-    if (!text) { setStatus('', ''); return; }
-    setStatus('Processing…', 'thinking');
-    resetCatSelect();
-    setTimeout(() => parseAndAdd(text, null, true), 300);
-  };
-  recognition.onerror = () => { isRecording = false; mic.classList.remove('recording'); setStatus('Voice error — try again', 'error'); setTimeout(() => setStatus('', ''), 2500); };
-  recognition.start();
+  if (isRecording) {
+    // User tapped to stop — flag it before calling stop() so onend knows
+    userStoppedRecording = true;
+    recognition.stop();
+  } else {
+    userStoppedRecording = false;
+    accumulatedTranscript = '';
+    startRecognition();
+  }
 }
 
 // showPreview=true for voice; false for manual (instant add)
@@ -469,7 +520,7 @@ function openPreview(transcript, parsed, manualCat) {
   previewParsed = parsed.map(p => ({ ...p, _manualCat: manualCat }));
   previewRemoved = new Set();
 
-  document.getElementById('previewTranscript').textContent = `"${transcript}"`;
+  document.getElementById('previewTranscript').textContent = `“${transcript}”`;
   renderPreviewItems();
 
   document.getElementById('previewBackdrop').classList.add('visible');
