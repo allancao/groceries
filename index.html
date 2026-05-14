@@ -246,7 +246,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     </div>
     <div class="input-wrap">
       <div class="input-row">
-        <input class="main-input" id="mainInput" type="text" placeholder="Add an item…" autocomplete="off" autocorrect="off" oninput="onManualInput()" />
+        <input class="main-input" id="mainInput" type="text" placeholder="Add an item…" autocomplete="off" autocorrect="off" />
         <select class="cat-select" id="catSelect" title="Category">
           <option value="auto">✨ Auto</option>
           <option value="produce">🥦 Produce</option>
@@ -348,6 +348,98 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <script>
+const EMOJI_MAP = {
+  // Fruits — specific first
+  apple:'🍎', apricot:'🍑', avocado:'🥑', banana:'🍌', blackberry:'🫐',
+  blueberry:'🫐', boysenberry:'🫐', cantaloupe:'🍈', cherry:'🍒', coconut:'🥥',
+  cranberry:'🍒', fig:'🫐', grape:'🍇', grapefruit:'🍊', kiwi:'🥝',
+  lemon:'🍋', lime:'🍋', mango:'🥭', melon:'🍈', orange:'🍊',
+  papaya:'🥭', peach:'🍑', pear:'🍐', pineapple:'🍍', plum:'🍑',
+  pomegranate:'🍎', raspberry:'🍓', strawberry:'🍓', tangerine:'🍊', watermelon:'🍉',
+  // Vegetables
+  artichoke:'🌿', arugula:'🥬', asparagus:'🥦', beet:'🥕', broccoli:'🥦',
+  'bok choy':'🥬', cabbage:'🥬', carrot:'🥕', cauliflower:'🥦', celery:'🌿',
+  chard:'🥬', chive:'🌿', corn:'🌽', cucumber:'🥒', eggplant:'🍆',
+  fennel:'🌿', garlic:'🧄', ginger:'🫚', kale:'🥬', leek:'🌿',
+  lettuce:'🥬', mushroom:'🍄', okra:'🌿', onion:'🧅', pea:'🫛',
+  pepper:'🫑', 'bell pepper':'🫑', 'hot pepper':'🌶', potato:'🥔',
+  pumpkin:'🎃', radish:'🥕', scallion:'🌿', shallot:'🧅', spinach:'🥬',
+  squash:'🥕', 'sweet potato':'🍠', tomato:'🍅', turnip:'🥕', yam:'🍠',
+  zucchini:'🥒', 'green bean':'🫛', 'brussels sprout':'🥦', endive:'🥬',
+  parsnip:'🥕', rutabaga:'🥕', 'bean sprout':'🌿', 'bok choy':'🥬',
+  // Herbs & spices
+  basil:'🌿', cilantro:'🌿', cinnamon:'🌿', cumin:'🌿', dill:'🌿',
+  mint:'🌿', oregano:'🌿', paprika:'🌶', parsley:'🌿', rosemary:'🌿',
+  thyme:'🌿', turmeric:'🌿',
+  // Meat & seafood
+  anchovy:'🐟', bacon:'🥓', beef:'🥩', chicken:'🍗', clam:'🦪',
+  cod:'🐟', crab:'🦀', duck:'🍗', fish:'🐟', halibut:'🐟',
+  ham:'🥩', lamb:'🥩', lobster:'🦞', mussel:'🦪', oyster:'🦪',
+  pork:'🥩', prosciutto:'🥩', salmon:'🐟', sardine:'🐟', sausage:'🌭',
+  scallop:'🦪', shrimp:'🦐', squid:'🦑', steak:'🥩', tilapia:'🐟',
+  tuna:'🐟', turkey:'🦃', veal:'🥩',
+  // Dairy
+  butter:'🧈', cheese:'🧀', brie:'🧀', cheddar:'🧀', cream:'🥛',
+  egg:'🥚', feta:'🧀', ghee:'🧈', gouda:'🧀', gruyere:'🧀',
+  kefir:'🥛', mascarpone:'🧀', milk:'🥛', mozzarella:'🧀', parmesan:'🧀',
+  ricotta:'🧀', yogurt:'🥛',
+  // Bakery
+  bagel:'🥯', biscuit:'🍪', bread:'🍞', brioche:'🥐', cake:'🎂',
+  challah:'🍞', ciabatta:'🍞', cookie:'🍪', croissant:'🥐',
+  flatbread:'🫓', muffin:'🧁', naan:'🫓', pancake:'🥞', pita:'🫓',
+  pretzel:'🥨', roll:'🥖', sourdough:'🍞', tortilla:'🌮', waffle:'🧇',
+  // Pantry — grains
+  barley:'🌾', couscous:'🌾', farro:'🌾', flour:'🌾', oat:'🌾',
+  orzo:'🌾', quinoa:'🌾', rice:'🍚',
+  // Pantry — pasta/noodles
+  noodle:'🍜', pasta:'🍝', ramen:'🍜', spaghetti:'🍝', lasagna:'🍝',
+  // Pantry — other
+  bean:'🫘', broth:'🍲', chickpea:'🫘', chocolate:'🍫', cocoa:'🍫',
+  honey:'🍯', lentil:'🫘', 'olive oil':'🫒', oil:'🫒', peanut:'🥜',
+  salt:'🧂', sauce:'🍶', 'soy sauce':'🍶', stock:'🍲', sugar:'🍬',
+  syrup:'🍯', tahini:'🍶', vinegar:'🍶',
+  // Drinks
+  beer:'🍺', coffee:'☕', juice:'🧃', lemonade:'🍋', soda:'🥤',
+  tea:'🍵', water:'💧', wine:'🍷',
+  // Snacks & nuts
+  almond:'🥜', cashew:'🥜', chip:'🍟', nut:'🥜', pecan:'🥜',
+  pistachio:'🥜', popcorn:'🍿', walnut:'🥜',
+  // Household
+  soap:'🧼', sponge:'🧽', toothpaste:'🪥',
+};
+
+function getItemEmoji(rawName) {
+  // Strip any existing leading emoji
+  const stripped = rawName.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '').trim();
+  const name = stripped.toLowerCase();
+
+  // Exact match
+  if (EMOJI_MAP[name]) return EMOJI_MAP[name];
+
+  // De-pluralize: berries→berry, tomatoes→tomato, carrots→carrot
+  let base = name;
+  if (name.endsWith('ies')) base = name.slice(0, -3) + 'y';
+  else if (name.endsWith('oes')) base = name.slice(0, -2);
+  else if (name.endsWith('es') && name.length > 4) base = name.slice(0, -2);
+  else if (name.endsWith('s') && name.length > 3) base = name.slice(0, -1);
+
+  if (base !== name && EMOJI_MAP[base]) return EMOJI_MAP[base];
+
+  // Longest-key substring match (avoids 'pea' matching 'peanut')
+  let best = '';
+  for (const key of Object.keys(EMOJI_MAP)) {
+    if (key.length > best.length && (name.includes(key) || base.includes(key))) best = key;
+  }
+  return best ? EMOJI_MAP[best] : '';
+}
+
+function applyEmoji(name) {
+  const emoji = getItemEmoji(name);
+  const clean = name.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '').trim();
+  const cap = clean.charAt(0).toUpperCase() + clean.slice(1);
+  return emoji ? emoji + ' ' + cap : cap;
+}
+
 const CAT_COLORS = {
   produce:'#6aab6a', meat:'#d4705a', dairy:'#6a9ed4', bakery:'#d4a85a',
   pantry:'#b08060', drinks:'#5ab4b4', snacks:'#d4c05a', household:'#9070c8'
@@ -751,7 +843,7 @@ async function parseRecipeUrl(url) {
   }
 
   const tag = makeShortTag(recipeName);
-  if (tag) parsed.forEach(p => { p.recipe = tag; });
+  parsed.forEach(p => { if (tag) p.recipe = tag; if (p.name) p.name = applyEmoji(p.name); });
 
   let domain;
   try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch { domain = url; }
@@ -770,8 +862,7 @@ RULES:
 2. Extract: the item NAME (what to buy), QUANTITY (amount + unit, e.g. "2 lbs", "1 medium", "6 cloves"), and CATEGORY.
 3. Ignore cooking instructions — do NOT include words like "chopped", "diced", "minced", "peeled", "sliced", "roughly chopped", "finely chopped", "to taste" etc. These are prep notes, not shopping info.
 4. Set "recipe": null and "note": null for all items.
-5. NAME formatting: use sentence case (capitalize only the first letter, e.g. "Yellow onion", "Olive oil"). Correct any ALL CAPS or weird casing.
-6. EMOJI: always prepend one emoji. Selection order: (a) first convert the item to its singular base form and check for a specific emoji (e.g. "strawberries" → "strawberry" → 🍓; "blueberries" → "blueberry" → 🫐; "cherries" → "cherry" → 🍒); (b) only if no specific emoji exists, use the nearest category emoji. NOTE: 🫐 is the blueberry emoji — do NOT use it as a generic berry fallback. Specific-first examples: strawberry/strawberries → 🍓, blueberry/blueberries → 🫐, cherry/cherries → 🍒, grape/grapes → 🍇, raspberry/raspberries → 🍓 (closest), watermelon → 🍉, lemon/lemons → 🍋, lime/limes → 🍋, orange/oranges → 🍊. Category fallbacks (use only when no specific emoji): grains (orzo/farro/barley/couscous) → 🌾; pasta/noodles → 🍝; leafy greens (kale/chard/arugula) → 🥬; tree nuts → 🥜; cooking oils → 🫒; vinegar/condiments → 🍶; broth/stock → 🍲; canned beans/legumes → 🫘; flour → 🌾; sugar/sweeteners → 🍬; dry spices/herbs → 🌿; fresh herbs → 🌿; mushrooms → 🍄; root vegetables → 🥕; seafood → 🦐. Only omit emoji if truly no reasonable match exists.
+5. NAME formatting: use sentence case (capitalize only the first letter, e.g. "Yellow onion", "Olive oil"). Correct any ALL CAPS or weird casing. Do NOT add any emoji — emoji will be added separately.
 
 Return ONLY a valid JSON array, no markdown:
 [{"name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": null, "note": null}]
@@ -801,8 +892,7 @@ CRITICAL RULES:
 4. If user mentions a dish/meal/goal (e.g. "for taco night", "to make carbonara"), set "recipe" on each extracted item.
 5. If user says "stuff for X" or "ingredients for X", infer 3-5 typical ingredients as separate objects.
 6. Input may be a formatted ingredient list (one item per line with quantities). Parse each line as its own object.
-7. NAME formatting: use sentence case (capitalize only the first letter, e.g. "Chicken thighs", "Bell peppers", "Olive oil"). Correct any ALL CAPS or weird casing.
-8. EMOJI: always prepend one emoji using the closest semantic match — if no exact emoji exists, use the emoji for the broader category it belongs to. Examples of the logic: orzo/farro/couscous/barley → 🌾 (grain); pasta/noodles → 🍝; any leafy green → 🥬; any citrus → 🍋; any berry → 🫐; any tree nut → 🥜; any cooking oil → 🫒; any vinegar/condiment → 🍶; any broth/stock → 🍲; any canned bean/legume → 🫘; any flour → 🌾; any sugar/sweetener → 🍬; any spice/herb (dry) → 🌿; any fresh herb → 🌿; any mushroom → 🍄; any root vegetable → 🥕; any seafood → 🦐. Only omit emoji if truly no reasonable match exists.
+7. NAME formatting: use sentence case (capitalize only the first letter, e.g. "Chicken thighs", "Bell peppers", "Olive oil"). Correct any ALL CAPS or weird casing. Do NOT add any emoji — emoji will be added separately.
 
 Return ONLY a valid JSON array of objects, no markdown, no explanation.
 Each object: { "name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": string|null, "note": string|null }
@@ -832,13 +922,6 @@ function setStatus(msg, type) {
 function getCatSelect() { return document.getElementById('catSelect'); }
 function resetCatSelect() { const s = getCatSelect(); s.value = 'auto'; s.classList.remove('auto-set'); }
 
-function onManualInput() {
-  const text = document.getElementById('mainInput').value.trim();
-  const sel = getCatSelect();
-  if (!text) { resetCatSelect(); return; }
-  sel.value = categorize(text);
-  sel.classList.add('auto-set');
-}
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('catSelect').addEventListener('change', function() { this.classList.remove('auto-set'); });
@@ -924,6 +1007,7 @@ async function parseAndAdd(text, manualCat = null, showPreview = false, source =
     setStatus('⚠ Could not parse items — try rephrasing', 'error');
     setTimeout(() => setStatus('', ''), 4000); return;
   }
+  parsed.forEach(p => { if (p.name) p.name = applyEmoji(p.name); });
   if (showPreview) { setStatus('', ''); openPreview(text, parsed, manualCat, source); }
   else { commitItems(parsed, manualCat); }
 }
@@ -935,8 +1019,9 @@ function commitItems(parsed, manualCat) {
     const cat = manualCat || p.category || categorize(p.name);
     // If a new recipe tag came back from Claude, add it to recipeTags
     if (p.recipe && !recipeTags.includes(p.recipe)) { recipeTags.push(p.recipe); saveTags(); }
-    items.unshift({ id: Date.now() + Math.random(), name: p.name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: cat, checked: false, addedAt: new Date().toISOString() });
-    added.push(p.name);
+    const name = applyEmoji(p.name);
+    items.unshift({ id: Date.now() + Math.random(), name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: cat, checked: false, addedAt: new Date().toISOString() });
+    added.push(name);
   });
   save();
   if (added.length > 0) { setStatus(`✓ Added: ${added.join(', ')}`, 'thinking'); setTimeout(() => setStatus('', ''), 3000); }
