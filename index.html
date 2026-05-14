@@ -990,17 +990,10 @@ function renderPreviewItems() {
 
   container.innerHTML = '';
 
-  const catOrder = ['produce','meat','dairy','bakery','pantry','drinks','snacks','household'];
   const resolvedCat = p => ((p._manualCat || p.category || '').toLowerCase()) || categorize(p.name);
-  const sorted = previewParsed
-    .map((p, i) => ({ p, i, cat: resolvedCat(p) }))
-    .sort((a, b) => {
-      const ai = catOrder.indexOf(a.cat);
-      const bi = catOrder.indexOf(b.cat);
-      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
-    });
 
-  sorted.forEach(({ p, i, cat }) => {
+  previewParsed.forEach((p, i) => {
+    const cat = resolvedCat(p);
     const icon = CATS[cat]?.icon || '•';
     const removed = previewRemoved.has(i);
     const recipe = p._previewRecipe;
