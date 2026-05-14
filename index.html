@@ -144,6 +144,37 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .settings-hint { font-size: 12px; color: var(--hint); line-height: 1.5; margin-top: 6px; }
 .settings-hint a { color: var(--accent); text-decoration: none; }
 .danger-btn { padding: 10px 18px; border-radius: var(--radius-sm); background: #fee2e2; color: #b91c1c; border: 0.5px solid #fca5a5; font-size: 14px; cursor: pointer; font-family: var(--font-ui); width: 100%; margin-top: 6px; }
+
+/* ── Voice Preview Bottom Sheet ── */
+.preview-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+.preview-backdrop.visible { opacity: 1; pointer-events: all; }
+
+.preview-sheet { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%); width: 100%; max-width: 480px; background: var(--surface); border-radius: 20px 20px 0 0; z-index: 101; transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); padding-bottom: env(safe-area-inset-bottom, 16px); box-shadow: 0 -4px 24px rgba(0,0,0,0.12); }
+.preview-sheet.visible { transform: translateX(-50%) translateY(0); }
+
+.preview-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 10px auto 0; }
+
+.preview-header { padding: 14px 16px 10px; border-bottom: 0.5px solid var(--border); }
+.preview-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.preview-transcript { font-size: 12px; color: var(--muted); font-style: italic; background: var(--surface2); padding: 7px 10px; border-radius: 8px; line-height: 1.45; }
+
+.preview-items { max-height: 42vh; overflow-y: auto; padding: 10px 16px; }
+
+.preview-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 7px; border: 0.5px solid var(--border); }
+.preview-item.removed { opacity: 0.35; }
+.preview-item-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+.preview-item-body { flex: 1; min-width: 0; }
+.preview-item-name { font-size: 15px; font-family: var(--font); color: var(--text); }
+.preview-item-meta { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 3px; }
+.preview-remove-btn { width: 28px; height: 28px; border-radius: 50%; border: none; background: transparent; color: var(--hint); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+.preview-remove-btn:active { background: #fee2e2; color: #ef4444; }
+.preview-remove-btn.undo { color: var(--accent); font-size: 13px; font-weight: 600; width: auto; padding: 0 6px; border-radius: 6px; background: var(--accent-light); }
+
+.preview-footer { display: flex; gap: 8px; padding: 10px 16px 4px; }
+.preview-cancel-btn { flex: 1; padding: 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--muted); font-size: 15px; font-weight: 500; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; }
+.preview-confirm-btn { flex: 2; padding: 12px; border-radius: var(--radius-sm); border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; }
+.preview-confirm-btn:active, .preview-cancel-btn:active { transform: scale(0.97); opacity: 0.88; }
+.preview-confirm-btn:disabled { opacity: 0.45; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -231,6 +262,21 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 </div>
 
+<!-- Voice Preview Bottom Sheet -->
+<div class="preview-backdrop" id="previewBackdrop" onclick="cancelPreview()"></div>
+<div class="preview-sheet" id="previewSheet">
+  <div class="preview-handle"></div>
+  <div class="preview-header">
+    <div class="preview-title">Heard this — look right?</div>
+    <div class="preview-transcript" id="previewTranscript"></div>
+  </div>
+  <div class="preview-items" id="previewItems"></div>
+  <div class="preview-footer">
+    <button class="preview-cancel-btn" onclick="cancelPreview()">Discard</button>
+    <button class="preview-confirm-btn" id="previewConfirmBtn" onclick="confirmPreview()">Add to list</button>
+  </div>
+</div>
+
 <script>
 const CATS = {
   produce:   { label:'Produce',        icon:'🥦', kw:['apple','banana','orange','grape','strawberry','blueberry','raspberry','lemon','lime','avocado','tomato','lettuce','spinach','kale','broccoli','carrot','celery','cucumber','bell pepper','pepper','onion','garlic','potato','sweet potato','yam','corn','mushroom','zucchini','asparagus','pear','peach','plum','mango','pineapple','melon','watermelon','cantaloupe','herb','basil','cilantro','parsley','mint','dill','chive','ginger','beet','radish','arugula','cabbage','cauliflower','eggplant','squash','scallion','shallot','fennel','artichoke','brussels','leek','chard','collard','endive','turnip','parsnip','rutabaga','okra','bok choy','bean sprout','alfalfa'] },
@@ -253,6 +299,10 @@ function categorize(name) {
 
 let items = [], history = [], activeFilter = 'all', currentTab = 'list';
 let recognition = null, isRecording = false;
+
+// ── Preview state ──
+let previewParsed = [];   // full parsed array from Claude
+let previewRemoved = new Set(); // indices removed by user
 
 function load() {
   try { items = JSON.parse(localStorage.getItem('gco_items') || '[]'); } catch { items = []; }
@@ -330,7 +380,7 @@ async function handleAdd() {
   const manualCat = (sel.value && sel.value !== 'auto') ? sel.value : null;
   input.value = '';
   resetCatSelect();
-  await parseAndAdd(text, manualCat);
+  await parseAndAdd(text, manualCat, false);
 }
 
 function toggleVoice() {
@@ -358,13 +408,14 @@ function toggleVoice() {
     if (!text) { setStatus('', ''); return; }
     setStatus('Processing…', 'thinking');
     resetCatSelect();
-    setTimeout(() => parseAndAdd(text, null), 300);
+    setTimeout(() => parseAndAdd(text, null, true), 300);
   };
   recognition.onerror = () => { isRecording = false; mic.classList.remove('recording'); setStatus('Voice error — try again', 'error'); setTimeout(() => setStatus('', ''), 2500); };
   recognition.start();
 }
 
-async function parseAndAdd(text, manualCat = null) {
+// showPreview=true for voice; false for manual (instant add)
+async function parseAndAdd(text, manualCat = null, showPreview = false) {
   const btn = document.getElementById('addBtn');
   btn.classList.add('loading'); btn.textContent = '…';
   let parsed = null;
@@ -384,12 +435,22 @@ async function parseAndAdd(text, manualCat = null) {
     btn.classList.remove('loading'); btn.textContent = 'Add';
     return;
   }
+  btn.classList.remove('loading'); btn.textContent = 'Add';
   if (!parsed || parsed.length === 0) {
     setStatus('⚠ Could not parse items — try rephrasing', 'error');
     setTimeout(() => setStatus('', ''), 4000);
-    btn.classList.remove('loading'); btn.textContent = 'Add';
     return;
   }
+
+  if (showPreview) {
+    setStatus('', '');
+    openPreview(text, parsed, manualCat);
+  } else {
+    commitItems(parsed, manualCat);
+  }
+}
+
+function commitItems(parsed, manualCat) {
   const added = [];
   parsed.forEach(p => {
     if (!p.name || p.name.length < 1) return;
@@ -398,10 +459,74 @@ async function parseAndAdd(text, manualCat = null) {
     added.push(p.name);
   });
   save();
-  btn.classList.remove('loading'); btn.textContent = 'Add';
   if (added.length > 0) { setStatus(`✓ Added: ${added.join(', ')}`, 'thinking'); setTimeout(() => setStatus('', ''), 3000); }
   else setStatus('', '');
   renderAll(); updateFilters(); updateCount();
+}
+
+// ── Preview sheet ──
+function openPreview(transcript, parsed, manualCat) {
+  previewParsed = parsed.map(p => ({ ...p, _manualCat: manualCat }));
+  previewRemoved = new Set();
+
+  document.getElementById('previewTranscript').textContent = `"${transcript}"`;
+  renderPreviewItems();
+
+  document.getElementById('previewBackdrop').classList.add('visible');
+  document.getElementById('previewSheet').classList.add('visible');
+}
+
+function renderPreviewItems() {
+  const container = document.getElementById('previewItems');
+  const confirmBtn = document.getElementById('previewConfirmBtn');
+  const activeCount = previewParsed.length - previewRemoved.size;
+  confirmBtn.disabled = activeCount === 0;
+  confirmBtn.textContent = activeCount === 1 ? 'Add 1 item' : `Add ${activeCount} items`;
+
+  container.innerHTML = previewParsed.map((p, i) => {
+    const cat = p._manualCat || p.category || categorize(p.name);
+    const icon = CATS[cat]?.icon || '•';
+    const removed = previewRemoved.has(i);
+    return `<div class="preview-item${removed ? ' removed' : ''}" id="pi${i}">
+      <div class="preview-item-icon">${icon}</div>
+      <div class="preview-item-body">
+        <div class="preview-item-name">${esc(p.name)}</div>
+        <div class="preview-item-meta">
+          ${p.qty ? `<span class="qty-pill">${esc(p.qty)}</span>` : ''}
+          ${p.recipe ? `<span class="recipe-pill">🍽 ${esc(p.recipe)}</span>` : ''}
+          ${p.note ? `<span class="note-pill">${esc(p.note)}</span>` : ''}
+        </div>
+      </div>
+      ${removed
+        ? `<button class="preview-remove-btn undo" onclick="undoRemovePreviewItem(${i})">Undo</button>`
+        : `<button class="preview-remove-btn" onclick="removePreviewItem(${i})" title="Remove">×</button>`
+      }
+    </div>`;
+  }).join('');
+}
+
+function removePreviewItem(i) {
+  previewRemoved.add(i);
+  renderPreviewItems();
+}
+function undoRemovePreviewItem(i) {
+  previewRemoved.delete(i);
+  renderPreviewItems();
+}
+
+function closePreview() {
+  document.getElementById('previewBackdrop').classList.remove('visible');
+  document.getElementById('previewSheet').classList.remove('visible');
+}
+function cancelPreview() {
+  closePreview();
+  setStatus('', '');
+}
+function confirmPreview() {
+  const toAdd = previewParsed.filter((_, i) => !previewRemoved.has(i));
+  const manualCat = toAdd[0]?._manualCat || null;
+  closePreview();
+  commitItems(toAdd, manualCat);
 }
 
 document.getElementById('mainInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleAdd(); });
