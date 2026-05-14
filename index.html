@@ -975,7 +975,16 @@ function renderPreviewItems() {
 
   container.innerHTML = '';
 
-  previewParsed.forEach((p, i) => {
+  const catOrder = ['produce','meat','dairy','bakery','pantry','drinks','snacks','household'];
+  const sorted = previewParsed
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => {
+      const ai = catOrder.indexOf(a.p._manualCat || a.p.category || categorize(a.p.name));
+      const bi = catOrder.indexOf(b.p._manualCat || b.p.category || categorize(b.p.name));
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    });
+
+  sorted.forEach(({ p, i }) => {
     const cat = p._manualCat || p.category || categorize(p.name);
     const icon = CATS[cat]?.icon || '•';
     const removed = previewRemoved.has(i);
