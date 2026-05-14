@@ -105,7 +105,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .section-label { font-size: 11px; letter-spacing: 0.9px; text-transform: uppercase; color: var(--hint); font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .section-count { font-size: 11px; color: var(--hint); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
 
-.item-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 13px 14px; margin-bottom: 9px; display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--shadow); transition: opacity 0.2s, background 0.2s; }
+.item-card { background: var(--surface); border: 0.5px solid var(--border); border-left: 3px solid var(--cat-accent, var(--border)); border-radius: var(--radius); padding: 13px 14px; margin-bottom: 9px; display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--shadow); transition: opacity 0.2s, background 0.2s; }
 .item-card.checked { background: var(--surface2); box-shadow: none; opacity: 0.65; }
 .item-card.checked .item-name { text-decoration: line-through; color: var(--hint); }
 
@@ -348,6 +348,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <script>
+const CAT_COLORS = {
+  produce:'#6aab6a', meat:'#d4705a', dairy:'#6a9ed4', bakery:'#d4a85a',
+  pantry:'#b08060', drinks:'#5ab4b4', snacks:'#d4c05a', household:'#9070c8'
+};
+
 const CATS = {
   produce:   { label:'Produce',        icon:'🥦', kw:['apple','banana','orange','grape','strawberry','blueberry','raspberry','lemon','lime','avocado','tomato','lettuce','spinach','kale','broccoli','carrot','celery','cucumber','bell pepper','pepper','onion','garlic','potato','sweet potato','yam','corn','mushroom','zucchini','asparagus','pear','peach','plum','mango','pineapple','melon','watermelon','cantaloupe','herb','basil','cilantro','parsley','mint','dill','chive','ginger','beet','radish','arugula','cabbage','cauliflower','eggplant','squash','scallion','shallot','fennel','artichoke','brussels','leek','chard','collard','endive','turnip','parsnip','rutabaga','okra','bok choy','bean sprout','alfalfa'] },
   meat:      { label:'Meat & Seafood', icon:'🥩', kw:['chicken','beef','pork','lamb','turkey','salmon','tuna','shrimp','steak','ground beef','ground turkey','ground pork','bacon','sausage','ham','fish','tilapia','cod','halibut','haddock','crab','lobster','duck','veal','brisket','rib','hot dog','pepperoni','prosciutto','salami','chorizo','pancetta','anchovy','sardine','clam','mussel','oyster','scallop','squid','octopus','venison','bison','rabbit'] },
@@ -1260,10 +1265,12 @@ function renderList() {
 
 function itemCard(item) {
   const checked = item.checked;
+  const accent = CAT_COLORS[item.category] || '';
+  const accentStyle = accent ? ` style="--cat-accent:${accent}"` : '';
   const tagBtn = item.recipe
     ? `<span class="recipe-pill" onclick="openTagPicker(${item.id})" title="Change tag">🍽 ${esc(item.recipe)}</span>`
     : `<button class="tag-btn" onclick="openTagPicker(${item.id})">+ tag</button>`;
-  return `<div class="item-card${checked?' checked':''}">
+  return `<div class="item-card${checked?' checked':''}"${accentStyle}>
     <div class="check-circle${checked?' done':''}" onclick="toggleCheck(${item.id})">
       <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5l3.5 3.5L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
