@@ -203,6 +203,22 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .tag-new-input { flex: 1; padding: 9px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 14px; font-family: var(--font-ui); outline: none; }
 .tag-new-input:focus { border-color: var(--accent); }
 .tag-new-btn { padding: 9px 14px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); white-space: nowrap; }
+
+/* ── Preview recipe tagging ── */
+.preview-tag-all { padding: 9px 16px 8px; border-bottom: 0.5px solid var(--border); }
+.preview-tag-all-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--hint); font-weight: 600; margin-bottom: 7px; }
+.preview-tag-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.preview-tag-chip { flex-shrink: 0; padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; }
+.preview-tag-chip.on { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); }
+.preview-new-tag-inline { flex: 1; min-width: 80px; max-width: 140px; padding: 4px 10px; border-radius: 20px; border: 0.5px dashed var(--border2); background: transparent; color: var(--text); font-size: 12px; font-family: var(--font-ui); outline: none; }
+.preview-new-tag-inline:focus { border-color: var(--accent); border-style: solid; }
+.preview-new-tag-inline::placeholder { color: var(--hint); }
+.preview-inline-picker { background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 8px; margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+.preview-inline-chip { flex-shrink: 0; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--font-ui); transition: all 0.12s; white-space: nowrap; }
+.preview-inline-chip.on { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-border); }
+.preview-inline-input { flex: 1; min-width: 60px; max-width: 120px; padding: 2px 7px; border-radius: 12px; border: 0.5px dashed var(--border2); background: transparent; color: var(--text); font-size: 11px; font-family: var(--font-ui); outline: none; }
+.preview-inline-input:focus { border-color: var(--accent); border-style: solid; }
+.preview-inline-input::placeholder { color: var(--hint); }
 </style>
 </head>
 <body>
@@ -306,10 +322,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 <div class="bottom-sheet" id="previewSheet">
   <div class="sheet-handle"></div>
   <div class="sheet-header">
-    <span class="sheet-title">Heard this — look right?</span>
+    <span class="sheet-title" id="previewSheetTitle">Heard this — look right?</span>
     <button class="sheet-close" onclick="cancelPreview()">×</button>
   </div>
   <div class="preview-transcript" id="previewTranscript"></div>
+  <div class="preview-tag-all" id="previewTagAll"></div>
   <div class="preview-items" id="previewItems"></div>
   <div class="sheet-footer">
     <button class="sheet-cancel-btn" onclick="cancelPreview()">Discard</button>
@@ -351,7 +368,8 @@ let items = [], history = [], recipeTags = [], activeFilter = 'all', currentTab 
 let recognition = null, isRecording = false, userStoppedRecording = false;
 let accumulatedTranscript = '';
 let previewParsed = [], previewRemoved = new Set();
-let tagPickerItemId = null; // which item we're tagging
+let previewInlinePickerIdx = -1;
+let tagPickerItemId = null;
 let activeSheet = null; // 'preview' | 'tagPicker'
 
 // ── Persistence ──
@@ -502,7 +520,8 @@ function openSheet(which) {
     if (which === 'preview') cancelPreview();
     else closeTagPicker();
   };
-  document.getElementById(which === 'preview' ? 'previewSheet' : 'tagPickerSheet').classList.add('visible');
+  const ids = { preview: 'previewSheet', tagPicker: 'tagPickerSheet' };
+  document.getElementById(ids[which]).classList.add('visible');
 }
 function closeSheet() {
   document.getElementById('sheetBackdrop').classList.remove('visible');
@@ -523,6 +542,7 @@ CRITICAL RULES:
 3. Ignore filler words like "I need to add", "also", "please", "can you add", "to my list" etc.
 4. If user mentions a dish/meal/goal (e.g. "for taco night", "to make carbonara"), set "recipe" on each extracted item.
 5. If user says "stuff for X" or "ingredients for X", infer 3-5 typical ingredients as separate objects.
+6. Input may be a formatted ingredient list (one item per line with quantities). Parse each line as its own object.
 
 Return ONLY a valid JSON array of objects, no markdown, no explanation.
 Each object: { "name": string, "qty": string|null, "category": one of [produce,meat,dairy,bakery,pantry,drinks,snacks,household], "recipe": string|null, "note": string|null }
@@ -621,7 +641,7 @@ function toggleVoice() {
   else { userStoppedRecording = false; accumulatedTranscript = ''; startRecognition(); }
 }
 
-async function parseAndAdd(text, manualCat = null, showPreview = false) {
+async function parseAndAdd(text, manualCat = null, showPreview = false, source = 'voice') {
   const btn = document.getElementById('addBtn');
   btn.classList.add('loading'); btn.textContent = '…';
   const hasKey = !!localStorage.getItem('gco_apikey');
@@ -644,7 +664,7 @@ async function parseAndAdd(text, manualCat = null, showPreview = false) {
     setStatus('⚠ Could not parse items — try rephrasing', 'error');
     setTimeout(() => setStatus('', ''), 4000); return;
   }
-  if (showPreview) { setStatus('', ''); openPreview(text, parsed, manualCat); }
+  if (showPreview) { setStatus('', ''); openPreview(text, parsed, manualCat, source); }
   else { commitItems(parsed, manualCat); }
 }
 
@@ -664,13 +684,47 @@ function commitItems(parsed, manualCat) {
   renderAll(); updateFilters(); updateCount(); renderTagManager();
 }
 
-// ── Voice preview sheet ──
-function openPreview(transcript, parsed, manualCat) {
-  previewParsed = parsed.map(p => ({ ...p, _manualCat: manualCat }));
+// ── Preview sheet ──
+function openPreview(transcript, parsed, manualCat, source = 'voice') {
+  previewParsed = parsed.map(p => ({ ...p, _previewRecipe: p.recipe || null, _manualCat: manualCat }));
   previewRemoved = new Set();
-  document.getElementById('previewTranscript').textContent = `“${transcript}”`;
+  previewInlinePickerIdx = -1;
+  document.getElementById('previewTranscript').textContent = `”${transcript}”`;
+  document.getElementById('previewSheetTitle').textContent = source === 'paste' ? 'Review parsed items' : 'Heard this — look right?';
+  renderPreviewTagAll();
   renderPreviewItems();
   openSheet('preview');
+}
+
+function renderPreviewTagAll() {
+  const bar = document.getElementById('previewTagAll');
+  const tags = allTags();
+  const activeItems = previewParsed.filter((_, i) => !previewRemoved.has(i));
+  const activeRecipes = [...new Set(activeItems.map(p => p._previewRecipe))];
+  const commonTag = activeRecipes.length === 1 ? activeRecipes[0] : null;
+
+  let html = `<div class=”preview-tag-all-label”>Tag all items as</div><div class=”preview-tag-chips”>`;
+  html += `<span class=”preview-tag-chip${commonTag === null && activeRecipes.length <= 1 ? ' on' : ''}” onclick=”setAllPreviewRecipe(null)”>None</span>`;
+  tags.forEach(t => {
+    html += `<span class=”preview-tag-chip${commonTag === t ? ' on' : ''}” onclick=”setAllPreviewRecipe('${esc(t)}')”>${esc(t)}</span>`;
+  });
+  html += `<input class=”preview-new-tag-inline” placeholder=”New recipe…” onkeydown=”if(event.key==='Enter'&&this.value.trim()){addAndSetAllPreviewTag(this.value);this.value='';}” />`;
+  html += `</div>`;
+  bar.innerHTML = html;
+}
+
+function setAllPreviewRecipe(tag) {
+  previewParsed.forEach(p => { p._previewRecipe = tag; });
+  previewInlinePickerIdx = -1;
+  renderPreviewTagAll();
+  renderPreviewItems();
+}
+
+function addAndSetAllPreviewTag(name) {
+  name = name.trim();
+  if (!name) return;
+  if (!recipeTags.includes(name)) { recipeTags.push(name); saveTags(); }
+  setAllPreviewRecipe(name);
 }
 
 function renderPreviewItems() {
@@ -679,38 +733,84 @@ function renderPreviewItems() {
   const activeCount = previewParsed.length - previewRemoved.size;
   confirmBtn.disabled = activeCount === 0;
   confirmBtn.textContent = activeCount === 1 ? 'Add 1 item' : `Add ${activeCount} items`;
+  const tags = allTags();
   container.innerHTML = previewParsed.map((p, i) => {
     const cat = p._manualCat || p.category || categorize(p.name);
     const icon = CATS[cat]?.icon || '•';
     const removed = previewRemoved.has(i);
-    return `<div class="preview-item${removed ? ' removed' : ''}">
-      <div class="preview-item-icon">${icon}</div>
-      <div class="preview-item-body">
-        <div class="preview-item-name">${esc(p.name)}</div>
-        <div class="preview-item-meta">
-          ${p.qty ? `<span class="qty-pill">${esc(p.qty)}</span>` : ''}
-          ${p.recipe ? `<span class="recipe-pill">🍽 ${esc(p.recipe)}</span>` : ''}
-          ${p.note ? `<span class="note-pill">${esc(p.note)}</span>` : ''}
+    const recipe = p._previewRecipe;
+    const showPicker = previewInlinePickerIdx === i && !removed;
+
+    const tagHtml = recipe
+      ? `<span class=”recipe-pill” onclick=”togglePreviewInlinePicker(${i})” style=”cursor:pointer;”>🍽 ${esc(recipe)}</span>`
+      : `<button class=”tag-btn” onclick=”togglePreviewInlinePicker(${i})”>🏷 tag</button>`;
+
+    const pickerHtml = showPicker ? `<div class=”preview-inline-picker”>
+        <span class=”preview-inline-chip${!recipe ? ' on' : ''}” onclick=”setPreviewItemRecipe(${i},null)”>None</span>
+        ${tags.map(t => `<span class=”preview-inline-chip${recipe===t?' on':''}” onclick=”setPreviewItemRecipe(${i},'${esc(t)}')”>${esc(t)}</span>`).join('')}
+        <input class=”preview-inline-input” placeholder=”New recipe…” onkeydown=”if(event.key==='Enter'&&this.value.trim()){addAndSetPreviewItemTag(${i},this.value);this.value='';}”>
+      </div>` : '';
+
+    return `<div class=”preview-item${removed ? ' removed' : ''}”>
+      <div class=”preview-item-icon”>${icon}</div>
+      <div class=”preview-item-body”>
+        <div class=”preview-item-name”>${esc(p.name)}</div>
+        <div class=”preview-item-meta”>
+          ${p.qty ? `<span class=”qty-pill”>${esc(p.qty)}</span>` : ''}
+          ${removed ? '' : tagHtml}
+          ${p.note ? `<span class=”note-pill”>${esc(p.note)}</span>` : ''}
         </div>
+        ${pickerHtml}
       </div>
       ${removed
-        ? `<button class="preview-remove-btn undo" onclick="undoRemovePreviewItem(${i})">Undo</button>`
-        : `<button class="preview-remove-btn" onclick="removePreviewItem(${i})" title="Remove">×</button>`}
+        ? `<button class=”preview-remove-btn undo” onclick=”undoRemovePreviewItem(${i})”>Undo</button>`
+        : `<button class=”preview-remove-btn” onclick=”removePreviewItem(${i})” title=”Remove”>×</button>`}
     </div>`;
   }).join('');
 }
 
-function removePreviewItem(i) { previewRemoved.add(i); renderPreviewItems(); }
-function undoRemovePreviewItem(i) { previewRemoved.delete(i); renderPreviewItems(); }
+function togglePreviewInlinePicker(idx) {
+  previewInlinePickerIdx = previewInlinePickerIdx === idx ? -1 : idx;
+  renderPreviewItems();
+}
+
+function setPreviewItemRecipe(idx, tag) {
+  previewParsed[idx]._previewRecipe = tag;
+  previewInlinePickerIdx = -1;
+  renderPreviewTagAll();
+  renderPreviewItems();
+}
+
+function addAndSetPreviewItemTag(idx, name) {
+  name = name.trim();
+  if (!name) return;
+  if (!recipeTags.includes(name)) { recipeTags.push(name); saveTags(); }
+  setPreviewItemRecipe(idx, name);
+}
+
+function removePreviewItem(i) { previewRemoved.add(i); previewInlinePickerIdx = -1; renderPreviewTagAll(); renderPreviewItems(); }
+function undoRemovePreviewItem(i) { previewRemoved.delete(i); renderPreviewTagAll(); renderPreviewItems(); }
 function cancelPreview() { closeSheet(); setStatus('', ''); }
 function confirmPreview() {
-  const toAdd = previewParsed.filter((_, i) => !previewRemoved.has(i));
+  const toAdd = previewParsed
+    .filter((_, i) => !previewRemoved.has(i))
+    .map(p => ({ ...p, recipe: p._previewRecipe }));
   const manualCat = toAdd[0]?._manualCat || null;
   closeSheet();
   commitItems(toAdd, manualCat);
 }
 
 document.getElementById('mainInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleAdd(); });
+document.getElementById('mainInput').addEventListener('paste', e => {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length > 1) {
+    e.preventDefault();
+    e.target.value = '';
+    resetCatSelect();
+    parseAndAdd(text, null, true, 'paste');
+  }
+});
 
 // ── List actions ──
 function toggleCheck(id) {
