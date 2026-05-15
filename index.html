@@ -117,7 +117,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .item-body { flex: 1; min-width: 0; }
 .item-name { font-size: 17px; font-family: var(--font); color: var(--text); line-height: 1.25; word-break: break-word; }
 .item-sub { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
-.qty-pill { font-size: 11px; color: var(--muted); background: var(--surface2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); }
+.qty-pill { font-size: 11px; color: var(--muted); background: var(--surface2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.qty-pill:hover { background: var(--accent-light); color: var(--accent); }
+.add-qty-btn { font-size: 11px; color: var(--hint); background: transparent; border: 0.5px dashed var(--border2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); cursor: pointer; transition: all 0.15s; }
+.add-qty-btn:hover { border-color: var(--accent); color: var(--accent); }
+.qty-edit-input { width: 72px; padding: 2px 8px; border-radius: 8px; border: 1px solid var(--accent); font-size: 11px; font-family: var(--font-ui); background: var(--surface); color: var(--text); outline: none; }
 .recipe-pill { font-size: 11px; color: var(--tag-text); background: var(--tag-bg); border: 0.5px solid var(--tag-border); padding: 2px 9px; border-radius: 8px; font-family: var(--font-ui); font-weight: 500; cursor: pointer; }
 .recipe-pill:active { opacity: 0.7; }
 .tag-btn { font-size: 11px; color: var(--hint); background: var(--surface2); border: 0.5px dashed var(--border2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); cursor: pointer; transition: all 0.15s; }
@@ -1288,6 +1292,41 @@ function toggleCheck(id) {
   save(); renderAll(); updateCount();
 }
 function deleteItem(id) { items = items.filter(i => i.id != id); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
+
+function editQty(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const card = document.querySelector(`[data-item-id="${id}"]`);
+  if (!card) return;
+  const sub = card.querySelector('.item-sub');
+  if (!sub) return;
+  const existing = sub.querySelector('.qty-pill, .add-qty-btn');
+  if (!existing) return;
+
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.value = item.qty || '';
+  inp.placeholder = 'qty…';
+  inp.className = 'qty-edit-input';
+
+  let saved = false;
+  const commit = () => {
+    if (saved) return;
+    saved = true;
+    const val = inp.value.trim() || null;
+    const it = items.find(i => i.id === id);
+    if (it) { it.qty = val; save(); renderList(); }
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+    if (e.key === 'Escape') { saved = true; renderList(); }
+  });
+  inp.addEventListener('blur', commit);
+
+  sub.replaceChild(inp, existing);
+  inp.focus();
+  inp.select();
+}
 function clearChecked() { items = items.filter(i => !i.checked); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
 function clearHistory() { history = []; saveHistory(); renderHistory(); }
 function restoreItem(boughtAt) {
@@ -1359,14 +1398,17 @@ function itemCard(item) {
   const tagBtn = item.recipe
     ? `<span class="recipe-pill" onclick="openTagPicker(${item.id})" title="Change tag">🍽 ${esc(item.recipe)}</span>`
     : `<button class="tag-btn" onclick="openTagPicker(${item.id})">+ tag</button>`;
-  return `<div class="item-card${checked?' checked':''}"${accentStyle}>
+  const qtyEl = item.qty
+    ? `<span class="qty-pill" onclick="editQty(${item.id})">${esc(item.qty)}</span>`
+    : `<button class="add-qty-btn" onclick="editQty(${item.id})">+ qty</button>`;
+  return `<div class="item-card${checked?' checked':''}" data-item-id="${item.id}"${accentStyle}>
     <div class="check-circle${checked?' done':''}" onclick="toggleCheck(${item.id})">
       <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5l3.5 3.5L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <div class="item-body">
       <div class="item-name">${esc(item.name)}</div>
       <div class="item-sub">
-        ${item.qty ? `<span class="qty-pill">${esc(item.qty)}</span>` : ''}
+        ${qtyEl}
         ${tagBtn}
         ${item.note ? `<span class="note-pill">${esc(item.note)}</span>` : ''}
       </div>
