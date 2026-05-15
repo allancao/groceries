@@ -283,8 +283,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           </div>
         </div>
         <div class="settings-section">
+          <div class="settings-label">GitHub Gist Sync</div>
+          <input class="settings-input" id="gistPatInput" type="password" placeholder="GitHub PAT (ghp_...)" autocomplete="off" />
+          <input class="settings-input" id="gistIdInput" type="text" placeholder="Gist ID (leave blank to auto-create)" autocomplete="off" style="margin-top:6px;" />
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;">
+            <button class="settings-save" onclick="saveGistConfig()">Save & test</button>
+            <button class="settings-save" style="background:var(--surface2);color:var(--accent);border:0.5px solid var(--border2);" onclick="gistPush()">Sync now ↑</button>
+          </div>
+          <div id="gistStatus" style="margin-top:8px;min-height:20px;"></div>
+          <div class="settings-hint">Sync across devices via a private GitHub Gist. Create a Personal Access Token at <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens</a> with <strong>gist</strong> scope. Leave Gist ID blank on first save — one will be created automatically.</div>
+        </div>
+        <div class="settings-section">
           <div class="settings-label">Data</div>
-          <div class="settings-hint" style="margin-bottom:10px;">All grocery data is saved locally on this device. Nothing is sent to any server except Claude API calls when parsing items.</div>
+          <div class="settings-hint" style="margin-bottom:10px;">All grocery data is saved locally on this device. Nothing is sent to any server except Claude API calls and, if configured, Gist syncs to GitHub.</div>
           <button class="danger-btn" onclick="nukeData()">🗑 Clear all data</button>
         </div>
         <div class="settings-section">
@@ -353,6 +364,7 @@ let accumulatedTranscript = '';
 let previewParsed = [], previewRemoved = new Set();
 let tagPickerItemId = null; // which item we're tagging
 let activeSheet = null; // 'preview' | 'tagPicker'
+let gistDirty = false;
 
 // ── Persistence ──
 function load() {
@@ -361,11 +373,16 @@ function load() {
   try { recipeTags = JSON.parse(localStorage.getItem('gco_tags') || '[]'); } catch { recipeTags = []; }
   const key = localStorage.getItem('gco_apikey');
   if (key) document.getElementById('apiKeyInput').value = key;
+  const pat = localStorage.getItem('gco_gist_pat');
+  const gistId = localStorage.getItem('gco_gist_id');
+  if (pat) document.getElementById('gistPatInput').value = pat;
+  if (gistId) document.getElementById('gistIdInput').value = gistId;
   renderAll(); updateFilters(); renderTagManager();
+  if (pat && gistId) gistPull().then(r => { if (r.status === 'updated') showSyncBadge('✓ Synced'); }).catch(() => showSyncBadge('Sync failed', true));
 }
-function save() { localStorage.setItem('gco_items', JSON.stringify(items)); }
-function saveHistory() { localStorage.setItem('gco_history', JSON.stringify(history)); }
-function saveTags() { localStorage.setItem('gco_tags', JSON.stringify(recipeTags)); }
+function save() { localStorage.setItem('gco_items', JSON.stringify(items)); gistDirty = true; }
+function saveHistory() { localStorage.setItem('gco_history', JSON.stringify(history)); gistDirty = true; }
+function saveTags() { localStorage.setItem('gco_tags', JSON.stringify(recipeTags)); gistDirty = true; }
 
 // ── All known tags (from items + saved tags, deduplicated) ──
 function allTags() {
@@ -399,6 +416,9 @@ function addTagFromSettings() {
 }
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tagAddInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTagFromSettings(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && gistDirty && localStorage.getItem('gco_gist_pat') && localStorage.getItem('gco_gist_id')) gistPush();
+  });
 });
 
 function renameTag(oldName, newName) {
@@ -848,8 +868,117 @@ function saveApiKey() {
 function nukeData() {
   if (!confirm('Delete all grocery data? This cannot be undone.')) return;
   localStorage.removeItem('gco_items'); localStorage.removeItem('gco_history'); localStorage.removeItem('gco_tags');
-  items = []; history = []; recipeTags = [];
+  localStorage.removeItem('gco_gist_etag'); localStorage.removeItem('gco_gist_last_push');
+  items = []; history = []; recipeTags = []; gistDirty = false;
   renderAll(); updateFilters(); updateCount(); renderTagManager(); switchTab('list');
+}
+
+// ── Gist Sync ──
+function getDeviceId() {
+  let id = localStorage.getItem('gco_deviceId');
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem('gco_deviceId', id); }
+  return id;
+}
+
+function gistHeaders(pat) {
+  return { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' };
+}
+
+async function gistCreate(pat) {
+  const resp = await fetch('https://api.github.com/gists', { method: 'POST', headers: gistHeaders(pat), body: JSON.stringify({ description: 'Cart&Co grocery list', public: false, files: { 'cartco.json': { content: '{}' } } }) });
+  if (!resp.ok) throw new Error(`Could not create Gist: ${resp.status}`);
+  const data = await resp.json();
+  localStorage.setItem('gco_gist_id', data.id);
+  document.getElementById('gistIdInput').value = data.id;
+  return data.id;
+}
+
+async function gistPull() {
+  const pat = localStorage.getItem('gco_gist_pat');
+  const gistId = localStorage.getItem('gco_gist_id');
+  if (!pat || !gistId) return { status: 'unconfigured' };
+  const headers = { ...gistHeaders(pat) };
+  const etag = localStorage.getItem('gco_gist_etag');
+  if (etag) headers['If-None-Match'] = etag;
+  let resp;
+  try { resp = await fetch(`https://api.github.com/gists/${gistId}`, { headers }); }
+  catch (e) { return { status: 'error', message: e.message }; }
+  if (resp.status === 304) return { status: 'unchanged' };
+  if (resp.status === 401) return { status: 'error', message: 'Auth failed — check your PAT' };
+  if (resp.status === 404) return { status: 'error', message: 'Gist not found — check Gist ID' };
+  if (!resp.ok) return { status: 'error', message: `GitHub error ${resp.status}` };
+  const newEtag = resp.headers.get('ETag');
+  if (newEtag) localStorage.setItem('gco_gist_etag', newEtag);
+  const data = await resp.json();
+  const content = data.files?.['cartco.json']?.content;
+  if (!content) return { status: 'unchanged' };
+  let remote;
+  try { remote = JSON.parse(content); } catch { return { status: 'error', message: 'Invalid Gist JSON' }; }
+  if (!remote.lastModified) return { status: 'unchanged' };
+  const lastPush = localStorage.getItem('gco_gist_last_push');
+  if (lastPush && new Date(remote.lastModified) <= new Date(lastPush)) return { status: 'unchanged' };
+  applyRemoteData(remote);
+  return { status: 'updated' };
+}
+
+let _pushTimer = null;
+async function gistPush() {
+  clearTimeout(_pushTimer);
+  return new Promise(resolve => {
+    _pushTimer = setTimeout(async () => {
+      const pat = localStorage.getItem('gco_gist_pat');
+      let gistId = localStorage.getItem('gco_gist_id');
+      if (!pat) { showSyncBadge('No PAT configured', true); resolve({ status: 'error' }); return; }
+      try {
+        if (!gistId) gistId = await gistCreate(pat);
+        const payload = { version: 1, lastModified: new Date().toISOString(), deviceId: getDeviceId(), items, history, recipeTags };
+        const resp = await fetch(`https://api.github.com/gists/${gistId}`, { method: 'PATCH', headers: gistHeaders(pat), body: JSON.stringify({ files: { 'cartco.json': { content: JSON.stringify(payload, null, 2) } } }) });
+        if (!resp.ok) throw new Error(`GitHub error ${resp.status}`);
+        localStorage.setItem('gco_gist_last_push', payload.lastModified);
+        localStorage.removeItem('gco_gist_etag'); // force fresh pull next time
+        gistDirty = false;
+        showSyncBadge('✓ Synced');
+        resolve({ status: 'ok' });
+      } catch (e) {
+        showSyncBadge(e.message, true);
+        resolve({ status: 'error', message: e.message });
+      }
+    }, 400);
+  });
+}
+
+function applyRemoteData(remote) {
+  items = remote.items || [];
+  history = remote.history || [];
+  recipeTags = remote.recipeTags || [];
+  localStorage.setItem('gco_items', JSON.stringify(items));
+  localStorage.setItem('gco_history', JSON.stringify(history));
+  localStorage.setItem('gco_tags', JSON.stringify(recipeTags));
+  renderAll(); updateFilters(); updateCount(); renderTagManager();
+}
+
+async function saveGistConfig() {
+  const pat = document.getElementById('gistPatInput').value.trim();
+  const gistId = document.getElementById('gistIdInput').value.trim();
+  if (!pat) { showSyncBadge('PAT is required', true); return; }
+  localStorage.setItem('gco_gist_pat', pat);
+  if (gistId) localStorage.setItem('gco_gist_id', gistId);
+  else localStorage.removeItem('gco_gist_id');
+  localStorage.removeItem('gco_gist_etag');
+  showSyncBadge('Testing connection…');
+  const result = await gistPull();
+  if (result.status === 'error') showSyncBadge(result.message, true);
+  else if (result.status === 'unconfigured') { showSyncBadge('Saved — will create Gist on first sync'); }
+  else showSyncBadge('✓ Connected');
+}
+
+let _syncBadgeTimer = null;
+function showSyncBadge(msg, isError = false) {
+  const el = document.getElementById('gistStatus');
+  if (!el) return;
+  el.innerHTML = `<span class="status-msg ${isError ? 'error' : 'thinking'}">${msg}</span>`;
+  clearTimeout(_syncBadgeTimer);
+  _syncBadgeTimer = setTimeout(() => { el.innerHTML = ''; }, 4000);
 }
 
 load();
