@@ -99,6 +99,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
 
 .scroll-area { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: env(safe-area-inset-bottom, 20px); }
+.ptr-indicator { text-align: center; padding: 0; height: 0; overflow: hidden; transition: height 0.2s, opacity 0.2s; opacity: 0; font-size: 12px; color: var(--hint); font-family: var(--font-ui); }
+.ptr-indicator.ptr-active { height: 36px; opacity: 1; display: flex; align-items: center; justify-content: center; gap: 6px; }
 
 .section { padding: 0 16px; margin-top: 18px; }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -268,6 +270,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="status-row"><span id="statusMsg"></span></div>
     </div>
     <div class="scroll-area" id="listScroll">
+      <div class="ptr-indicator" id="ptrIndicator">↓ Hold to sync…</div>
       <div id="groceryList"></div>
     </div>
   </div>
@@ -539,6 +542,48 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && gistDirty && localStorage.getItem('gco_gist_pat') && localStorage.getItem('gco_gist_id')) gistPush();
   });
+
+  // ── Pull-to-refresh: hold at top of list for 1s ──
+  const listScroll = document.getElementById('listScroll');
+  const ptrIndicator = document.getElementById('ptrIndicator');
+  let ptrTouchStartY = 0;
+  let ptrHoldTimer = null;
+  let ptrArmed = false;
+
+  function ptrCancel() {
+    clearTimeout(ptrHoldTimer);
+    ptrHoldTimer = null;
+    ptrArmed = false;
+    ptrIndicator.classList.remove('ptr-active');
+    ptrIndicator.textContent = '↓ Hold to sync…';
+  }
+
+  function ptrArm() {
+    if (!localStorage.getItem('gco_gist_pat') || !localStorage.getItem('gco_gist_id')) return;
+    ptrArmed = true;
+    ptrIndicator.classList.add('ptr-active');
+    ptrHoldTimer = setTimeout(async () => {
+      ptrIndicator.textContent = '↻ Syncing…';
+      const result = await gistPull();
+      ptrIndicator.textContent = result.status === 'updated' ? '✓ Updated' : result.status === 'error' ? '⚠ ' + result.message : '✓ Up to date';
+      setTimeout(ptrCancel, 1500);
+    }, 1000);
+  }
+
+  listScroll.addEventListener('touchstart', e => {
+    ptrTouchStartY = e.touches[0].clientY;
+    if (listScroll.scrollTop === 0) ptrArm();
+  }, { passive: true });
+
+  listScroll.addEventListener('touchmove', e => {
+    if (!ptrArmed) return;
+    const dy = e.touches[0].clientY - ptrTouchStartY;
+    if (dy < 0 || listScroll.scrollTop > 2) ptrCancel();
+  }, { passive: true });
+
+  listScroll.addEventListener('touchend', () => {
+    if (ptrArmed && ptrHoldTimer) ptrCancel();
+  }, { passive: true });
 });
 
 function renameTag(oldName, newName) {
@@ -1049,6 +1094,7 @@ function commitItems(parsed, manualCat) {
   if (added.length > 0) { setStatus(`✓ Added: ${added.join(', ')}`, 'thinking'); setTimeout(() => setStatus('', ''), 3000); }
   else setStatus('', '');
   renderAll(); updateFilters(); updateCount(); renderTagManager();
+  if (localStorage.getItem('gco_gist_pat') && localStorage.getItem('gco_gist_id')) gistPush();
 }
 
 // ── Preview sheet ──
