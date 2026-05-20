@@ -117,7 +117,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .check-circle.done svg { display: block; }
 
 .item-body { flex: 1; min-width: 0; }
-.item-name { font-size: 17px; font-family: var(--font); color: var(--text); line-height: 1.25; word-break: break-word; }
+.item-name { font-size: 17px; font-family: var(--font); color: var(--text); line-height: 1.25; word-break: break-word; cursor: pointer; }
+.item-name:hover { color: var(--accent); }
+.name-edit-input { font-size: 17px; font-family: var(--font); color: var(--text); line-height: 1.25; width: 100%; padding: 0; border: none; border-bottom: 1.5px solid var(--accent); background: transparent; outline: none; }
 .item-sub { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
 .qty-pill { font-size: 11px; color: var(--muted); background: var(--surface2); padding: 2px 8px; border-radius: 8px; font-family: var(--font-ui); cursor: pointer; transition: background 0.15s, color 0.15s; }
 .qty-pill:hover { background: var(--accent-light); color: var(--accent); }
@@ -1391,6 +1393,41 @@ function editQty(id) {
   inp.focus();
   inp.select();
 }
+
+function editName(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const card = document.querySelector(`[data-item-id="${id}"]`);
+  if (!card) return;
+  const nameEl = card.querySelector('.item-name');
+  if (!nameEl) return;
+
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.value = item.name;
+  inp.className = 'name-edit-input';
+
+  let saved = false;
+  const commit = () => {
+    if (saved) return;
+    saved = true;
+    const val = inp.value.trim();
+    const it = items.find(i => i.id === id);
+    if (it && val) { it.name = applyEmoji(val); save(); renderList(); }
+    else renderList();
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+    if (e.key === 'Escape') { saved = true; renderList(); }
+  });
+  inp.addEventListener('blur', commit);
+
+  nameEl.replaceWith(inp);
+  inp.focus();
+  // Place cursor at end
+  inp.setSelectionRange(inp.value.length, inp.value.length);
+}
+
 function clearChecked() { items = items.filter(i => !i.checked); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
 function clearHistory() { history = []; saveHistory(); renderHistory(); }
 function restoreItem(boughtAt) {
@@ -1470,7 +1507,7 @@ function itemCard(item) {
       <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5l3.5 3.5L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <div class="item-body">
-      <div class="item-name">${esc(item.name)}</div>
+      <div class="item-name" onclick="editName(${item.id})">${esc(item.name)}</div>
       <div class="item-sub">
         ${qtyEl}
         ${tagBtn}
