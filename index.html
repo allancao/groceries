@@ -1003,7 +1003,36 @@ async function handleAdd() {
   const sel = getCatSelect();
   const manualCat = (sel.value && sel.value !== 'auto') ? sel.value : null;
   input.value = ''; resetCatSelect();
-  await parseAndAdd(text, manualCat, false);
+
+  // Fast path: looks like a plain item name, no need for Claude
+  if (isSimpleItem(text)) {
+    const { name, qty } = quickParseItem(text);
+    const cat = manualCat || categorize(name);
+    commitItems([{ name, qty, category: cat, recipe: null, note: null }], manualCat);
+  } else {
+    await parseAndAdd(text, manualCat, false);
+  }
+}
+
+// Returns true when the input looks like a single item (possibly with a quantity),
+// not natural-language speech or a multi-item sentence.
+function isSimpleItem(text) {
+  const t = text.toLowerCase().trim();
+  // Starts with command/filler words → send to Claude
+  if (/^(add|get|buy|grab|pick up|i need|need|can you|please)\b/.test(t)) return false;
+  // Contains " and " or commas joining distinct words → likely multiple items
+  if (/\band\b/.test(t) || (t.includes(',') && t.split(',').length > 2)) return false;
+  // Contains meal/goal phrases
+  if (/\b(for|to make|to cook|for the|tonight|dinner|breakfast|lunch)\b/.test(t)) return false;
+  return true;
+}
+
+// Splits a simple item string into { name, qty }.
+// e.g. "2 lbs chicken thighs" → { qty: "2 lbs", name: "chicken thighs" }
+function quickParseItem(text) {
+  const m = text.match(/^(\d+(?:[./]\d+)?\s*(?:lbs?|oz|g|kg|ml|l|cups?|tbsp?|tsp?|cloves?|medium|large|small|bunch|handful|cans?|bottles?|packs?|pieces?|slices?|heads?|stalks?|strips?))\s+(.+)/i);
+  if (m) return { qty: m[1].trim(), name: m[2].trim() };
+  return { name: text, qty: null };
 }
 
 // ── Voice ──
