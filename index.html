@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#faf9f6">
 <title>Cart&Co</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 :root {
@@ -172,6 +173,20 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 /* ── Shared bottom sheet base ── */
 .sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
 .sheet-backdrop.visible { opacity: 1; pointer-events: all; }
+/* Auth screen */
+.auth-screen { position: fixed; inset: 0; background: var(--bg); z-index: 300; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; }
+.auth-card { width: 100%; max-width: 340px; }
+.auth-title { font-family: var(--font); font-size: 30px; margin-bottom: 4px; }
+.auth-title em { color: var(--accent); font-style: normal; }
+.auth-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; line-height: 1.5; }
+.auth-label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--hint); margin-bottom: 8px; }
+.auth-input { display: block; width: 100%; padding: 12px 14px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 16px; font-family: var(--font-ui); outline: none; margin-bottom: 12px; -webkit-appearance: none; transition: border-color 0.15s; }
+.auth-input:focus { border-color: var(--accent); }
+.auth-btn { display: block; width: 100%; padding: 13px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); transition: opacity 0.15s; }
+.auth-btn:disabled { opacity: 0.5; pointer-events: none; }
+.auth-back { background: none; border: none; color: var(--hint); font-size: 13px; font-family: var(--font-ui); cursor: pointer; padding: 10px 0 0; display: block; }
+.auth-notice { margin-top: 10px; font-size: 13px; color: var(--muted); text-align: center; }
+
 .bottom-sheet { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%); width: 100%; max-width: 480px; background: var(--surface); border-radius: 20px 20px 0 0; z-index: 101; transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); padding-bottom: env(safe-area-inset-bottom, 16px); box-shadow: 0 -4px 24px rgba(0,0,0,0.12); }
 .bottom-sheet.visible { transform: translateX(-50%) translateY(0); }
 .sheet-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 10px auto 0; }
@@ -233,6 +248,30 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </style>
 </head>
 <body>
+<!-- Auth screen (shown when not signed in) -->
+<div id="authScreen" class="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-title">Cart<em>&</em>Co</div>
+    <div class="auth-sub">Sign in to sync your grocery list across all your devices.</div>
+
+    <div id="authStep1">
+      <label class="auth-label" for="authEmail">Email</label>
+      <input class="auth-input" id="authEmail" type="email" placeholder="you@example.com" autocomplete="email" />
+      <button class="auth-btn" id="authSendBtn" onclick="authSendOtp()">Send code →</button>
+    </div>
+
+    <div id="authStep2" style="display:none;">
+      <div style="font-size:14px;color:var(--muted);margin-bottom:20px;">Code sent to <strong id="authEmailDisplay" style="color:var(--text);"></strong></div>
+      <label class="auth-label" for="authOtp">6-digit code</label>
+      <input class="auth-input" id="authOtp" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="000000" maxlength="6" autocomplete="one-time-code" />
+      <button class="auth-btn" id="authVerifyBtn" onclick="authVerifyOtp()">Sign in →</button>
+      <button class="auth-back" onclick="authBack()">← Use a different email</button>
+    </div>
+
+    <div id="authMsg" style="min-height:36px;margin-top:12px;"></div>
+  </div>
+</div>
+
 <div id="app">
   <div class="header">
     <div class="header-top">
@@ -304,25 +343,23 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <input class="settings-input" id="apiKeyInput" type="password" placeholder="sk-ant-..." />
           <button class="settings-save" onclick="saveApiKey()">Save key</button>
           <div class="settings-hint">
-            Your key is stored only on this device (localStorage). Get one at
+            Your key is stored only on this device and is never synced. Get one at
             <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
             A key is required — without one, only manual text entry works.
           </div>
         </div>
         <div class="settings-section">
-          <div class="settings-label">GitHub Gist Sync</div>
-          <input class="settings-input" id="gistPatInput" type="password" placeholder="GitHub PAT (ghp_...)" autocomplete="off" />
-          <input class="settings-input" id="gistIdInput" type="text" placeholder="Gist ID (leave blank to auto-create)" autocomplete="off" style="margin-top:6px;" />
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;">
-            <button class="settings-save" onclick="saveGistConfig()">Save & test</button>
-            <button class="settings-save" style="background:var(--surface2);color:var(--accent);border:0.5px solid var(--border2);" onclick="gistPush()">Sync now ↑</button>
+          <div class="settings-label">Account & Sync</div>
+          <div id="syncStatus" style="font-size:14px;color:var(--muted);margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="settings-save" style="background:var(--surface2);color:var(--accent);border:0.5px solid var(--border2);" onclick="manualSync()">Sync now ↑</button>
+            <button class="settings-save" style="background:var(--surface2);color:var(--muted);border:0.5px solid var(--border2);" onclick="authSignOut()">Sign out</button>
           </div>
-          <div id="gistStatus" style="margin-top:8px;min-height:20px;"></div>
-          <div class="settings-hint">Sync across devices via a private GitHub Gist. Create a Personal Access Token at <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens</a> with <strong>gist</strong> scope. Leave Gist ID blank on first save — one will be created automatically.</div>
+          <div class="settings-hint" style="margin-top:10px;">Your list syncs across all signed-in devices in real time.</div>
         </div>
         <div class="settings-section">
           <div class="settings-label">Data</div>
-          <div class="settings-hint" style="margin-bottom:10px;">All grocery data is saved locally on this device. Nothing is sent to any server except Claude API calls and, if configured, Gist syncs to GitHub.</div>
+          <div class="settings-hint" style="margin-bottom:10px;">Grocery data is synced to Supabase and cached locally. Claude API key is device-only and never sent to Supabase.</div>
           <button class="danger-btn" onclick="nukeData()">🗑 Clear all data</button>
         </div>
         <div class="settings-section">
@@ -489,25 +526,26 @@ let previewParsed = [], previewRemoved = new Set();
 let previewInlinePickerIdx = -1;
 let tagPickerItemId = null;
 let activeSheet = null; // 'preview' | 'tagPicker'
-let gistDirty = false;
-
 // ── Persistence ──
-function load() {
+function loadFromLocalStorage() {
   try { items = JSON.parse(localStorage.getItem('gco_items') || '[]'); } catch { items = []; }
   try { history = JSON.parse(localStorage.getItem('gco_history') || '[]'); } catch { history = []; }
   try { recipeTags = JSON.parse(localStorage.getItem('gco_tags') || '[]'); } catch { recipeTags = []; }
   const key = localStorage.getItem('gco_apikey');
   if (key) document.getElementById('apiKeyInput').value = key;
-  const pat = localStorage.getItem('gco_gist_pat');
-  const gistId = localStorage.getItem('gco_gist_id');
-  if (pat) document.getElementById('gistPatInput').value = pat;
-  if (gistId) document.getElementById('gistIdInput').value = gistId;
-  renderAll(); updateFilters(); renderTagManager();
-  if (pat && gistId) gistPull().then(r => { if (r.status === 'updated') showSyncBadge('✓ Synced'); }).catch(() => showSyncBadge('Sync failed', true));
 }
-function save() { localStorage.setItem('gco_items', JSON.stringify(items)); gistDirty = true; }
-function saveHistory() { localStorage.setItem('gco_history', JSON.stringify(history)); gistDirty = true; }
-function saveTags() { localStorage.setItem('gco_tags', JSON.stringify(recipeTags)); gistDirty = true; }
+function save() {
+  localStorage.setItem('gco_items', JSON.stringify(items));
+  scheduleSbSync();
+}
+function saveHistory() {
+  localStorage.setItem('gco_history', JSON.stringify(history));
+  scheduleSbHistorySync();
+}
+function saveTags() {
+  localStorage.setItem('gco_tags', JSON.stringify(recipeTags));
+  scheduleSbTagsSync();
+}
 
 // ── All known tags (from items + saved tags, deduplicated) ──
 function allTags() {
@@ -542,7 +580,7 @@ function addTagFromSettings() {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tagAddInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTagFromSettings(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && gistDirty && localStorage.getItem('gco_gist_pat') && localStorage.getItem('gco_gist_id')) gistPush();
+    if (document.visibilityState === 'hidden') { scheduleSbSync(); scheduleSbHistorySync(); scheduleSbTagsSync(); }
   });
 
   // ── Pull-to-refresh: hold at top of list for 1s ──
@@ -561,13 +599,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function ptrArm() {
-    if (!localStorage.getItem('gco_gist_pat') || !localStorage.getItem('gco_gist_id')) return;
+    if (!sbClient) return;
     ptrArmed = true;
     ptrIndicator.classList.add('ptr-active');
     ptrHoldTimer = setTimeout(async () => {
       ptrIndicator.textContent = '↻ Syncing…';
-      const result = await gistPull();
-      ptrIndicator.textContent = result.status === 'updated' ? '✓ Updated' : result.status === 'error' ? '⚠ ' + result.message : '✓ Up to date';
+      try {
+        await syncFromSupabase();
+        renderAll(); updateFilters(); updateCount(); renderTagManager();
+        ptrIndicator.textContent = '✓ Up to date';
+      } catch(e) {
+        ptrIndicator.textContent = '⚠ Sync failed';
+      }
       setTimeout(ptrCancel, 1500);
     }, 1000);
   }
@@ -1125,7 +1168,6 @@ function commitItems(parsed, manualCat) {
   if (added.length > 0) { setStatus(`✓ Added: ${added.join(', ')}`, 'thinking'); setTimeout(() => setStatus('', ''), 3000); }
   else setStatus('', '');
   renderAll(); updateFilters(); updateCount(); renderTagManager();
-  if (localStorage.getItem('gco_gist_pat') && localStorage.getItem('gco_gist_id')) gistPush();
 }
 
 // ── Preview sheet ──
@@ -1578,7 +1620,7 @@ function switchTab(t) {
     document.getElementById('tab-'+id).style.display = id===t ? (id==='list'?'flex':'block') : 'none';
   });
   document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['list','history','settings'][i]===t));
-  if (t === 'settings') renderTagManager();
+  if (t === 'settings') { renderTagManager(); updateSyncStatus(); }
 }
 
 function saveApiKey() {
@@ -1586,123 +1628,225 @@ function saveApiKey() {
   if (key) { localStorage.setItem('gco_apikey', key); alert('✓ API key saved. Claude AI parsing is now active.'); }
   else { localStorage.removeItem('gco_apikey'); alert('API key cleared.'); }
 }
-function nukeData() {
+async function nukeData() {
   if (!confirm('Delete all grocery data? This cannot be undone.')) return;
   localStorage.removeItem('gco_items'); localStorage.removeItem('gco_history'); localStorage.removeItem('gco_tags');
-  localStorage.removeItem('gco_gist_etag'); localStorage.removeItem('gco_gist_last_push');
-  items = []; history = []; recipeTags = []; gistDirty = false;
+  items = []; history = []; recipeTags = [];
+  if (sbClient) {
+    await Promise.all([
+      sbClient.from('items').delete().not('id', 'is', null),
+      sbClient.from('grocery_history').delete().not('id', 'is', null),
+      sbClient.from('recipe_tags').delete().not('name', 'is', null)
+    ]).catch(() => {});
+  }
   renderAll(); updateFilters(); updateCount(); renderTagManager(); switchTab('list');
 }
 
-// ── Gist Sync ──
-function getDeviceId() {
-  let id = localStorage.getItem('gco_deviceId');
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem('gco_deviceId', id); }
-  return id;
+// ── Supabase ──
+let sbClient = null;
+
+async function initSupabase() {
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) return false;
+    const { supabaseUrl, supabaseAnonKey } = await res.json();
+    if (!supabaseUrl || !supabaseAnonKey) return false;
+    sbClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+    return true;
+  } catch { return false; }
 }
 
-function gistHeaders(pat) {
-  return { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' };
-}
-
-async function gistCreate(pat) {
-  const resp = await fetch('https://api.github.com/gists', { method: 'POST', headers: gistHeaders(pat), body: JSON.stringify({ description: 'Cart&Co grocery list', public: false, files: { 'cartco.json': { content: '{}' } } }) });
-  if (!resp.ok) throw new Error(`Could not create Gist: ${resp.status}`);
-  const data = await resp.json();
-  localStorage.setItem('gco_gist_id', data.id);
-  document.getElementById('gistIdInput').value = data.id;
-  return data.id;
-}
-
-async function gistPull() {
-  const pat = localStorage.getItem('gco_gist_pat');
-  const gistId = localStorage.getItem('gco_gist_id');
-  if (!pat || !gistId) return { status: 'unconfigured' };
-  const headers = { ...gistHeaders(pat) };
-  const etag = localStorage.getItem('gco_gist_etag');
-  if (etag) headers['If-None-Match'] = etag;
-  let resp;
-  try { resp = await fetch(`https://api.github.com/gists/${gistId}`, { headers }); }
-  catch (e) { return { status: 'error', message: e.message }; }
-  if (resp.status === 304) return { status: 'unchanged' };
-  if (resp.status === 401) return { status: 'error', message: 'Auth failed — check your PAT' };
-  if (resp.status === 404) return { status: 'error', message: 'Gist not found — check Gist ID' };
-  if (!resp.ok) return { status: 'error', message: `GitHub error ${resp.status}` };
-  const newEtag = resp.headers.get('ETag');
-  if (newEtag) localStorage.setItem('gco_gist_etag', newEtag);
-  const data = await resp.json();
-  const content = data.files?.['cartco.json']?.content;
-  if (!content) return { status: 'unchanged' };
-  let remote;
-  try { remote = JSON.parse(content); } catch { return { status: 'error', message: 'Invalid Gist JSON' }; }
-  if (!remote.lastModified) return { status: 'unchanged' };
-  const lastPush = localStorage.getItem('gco_gist_last_push');
-  if (lastPush && new Date(remote.lastModified) <= new Date(lastPush)) return { status: 'unchanged' };
-  applyRemoteData(remote);
-  return { status: 'updated' };
-}
-
-let _pushTimer = null;
-async function gistPush() {
-  clearTimeout(_pushTimer);
-  return new Promise(resolve => {
-    _pushTimer = setTimeout(async () => {
-      const pat = localStorage.getItem('gco_gist_pat');
-      let gistId = localStorage.getItem('gco_gist_id');
-      if (!pat) { showSyncBadge('No PAT configured', true); resolve({ status: 'error' }); return; }
-      try {
-        if (!gistId) gistId = await gistCreate(pat);
-        const payload = { version: 1, lastModified: new Date().toISOString(), deviceId: getDeviceId(), items, history, recipeTags };
-        const resp = await fetch(`https://api.github.com/gists/${gistId}`, { method: 'PATCH', headers: gistHeaders(pat), body: JSON.stringify({ files: { 'cartco.json': { content: JSON.stringify(payload, null, 2) } } }) });
-        if (!resp.ok) throw new Error(`GitHub error ${resp.status}`);
-        localStorage.setItem('gco_gist_last_push', payload.lastModified);
-        localStorage.removeItem('gco_gist_etag'); // force fresh pull next time
-        gistDirty = false;
-        showSyncBadge('✓ Synced');
-        resolve({ status: 'ok' });
-      } catch (e) {
-        showSyncBadge(e.message, true);
-        resolve({ status: 'error', message: e.message });
-      }
-    }, 400);
-  });
-}
-
-function applyRemoteData(remote) {
-  items = remote.items || [];
-  history = remote.history || [];
-  recipeTags = remote.recipeTags || [];
+async function syncFromSupabase() {
+  if (!sbClient) return;
+  const [itemsRes, histRes, tagsRes] = await Promise.all([
+    sbClient.from('items').select('*').order('added_at', { ascending: false }),
+    sbClient.from('grocery_history').select('*').order('bought_at', { ascending: false }),
+    sbClient.from('recipe_tags').select('name')
+  ]);
+  if (itemsRes.error || histRes.error || tagsRes.error) return;
+  items = (itemsRes.data || []).map(r => ({
+    id: r.id, name: r.name, qty: r.qty, category: r.category,
+    recipe: r.recipe, note: r.note, checked: r.checked, addedAt: r.added_at
+  }));
+  history = (histRes.data || []).map(r => ({
+    id: r.id, name: r.name, qty: r.qty, category: r.category,
+    recipe: r.recipe, note: r.note, boughtAt: r.bought_at
+  }));
+  recipeTags = (tagsRes.data || []).map(r => r.name);
   localStorage.setItem('gco_items', JSON.stringify(items));
   localStorage.setItem('gco_history', JSON.stringify(history));
   localStorage.setItem('gco_tags', JSON.stringify(recipeTags));
-  renderAll(); updateFilters(); updateCount(); renderTagManager();
 }
 
-async function saveGistConfig() {
-  const pat = document.getElementById('gistPatInput').value.trim();
-  const gistId = document.getElementById('gistIdInput').value.trim();
-  if (!pat) { showSyncBadge('PAT is required', true); return; }
-  localStorage.setItem('gco_gist_pat', pat);
-  if (gistId) localStorage.setItem('gco_gist_id', gistId);
-  else localStorage.removeItem('gco_gist_id');
-  localStorage.removeItem('gco_gist_etag');
-  showSyncBadge('Testing connection…');
-  const result = await gistPull();
-  if (result.status === 'error') showSyncBadge(result.message, true);
-  else if (result.status === 'unconfigured') { showSyncBadge('Saved — will create Gist on first sync'); }
-  else showSyncBadge('✓ Connected');
+// Debounced push helpers
+let _sbItemTimer = null, _sbHistTimer = null, _sbTagTimer = null;
+function scheduleSbSync() { clearTimeout(_sbItemTimer); _sbItemTimer = setTimeout(pushItemsToSupabase, 600); }
+function scheduleSbHistorySync() { clearTimeout(_sbHistTimer); _sbHistTimer = setTimeout(pushHistoryToSupabase, 600); }
+function scheduleSbTagsSync() { clearTimeout(_sbTagTimer); _sbTagTimer = setTimeout(pushTagsToSupabase, 600); }
+
+async function pushItemsToSupabase() {
+  if (!sbClient) return;
+  const session = (await sbClient.auth.getSession()).data.session;
+  if (!session) return;
+  try {
+    const { data: existing } = await sbClient.from('items').select('id');
+    const existingIds = new Set((existing || []).map(r => r.id));
+    const currentIds = new Set(items.map(i => String(i.id)));
+    const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+    if (toDelete.length) await sbClient.from('items').delete().in('id', toDelete);
+    if (items.length) await sbClient.from('items').upsert(items.map(i => ({
+      id: String(i.id), name: i.name, qty: i.qty || null, category: i.category || null,
+      recipe: i.recipe || null, note: i.note || null, checked: !!i.checked,
+      added_at: i.addedAt || new Date().toISOString()
+    })));
+  } catch(e) { console.warn('Supabase items push:', e); }
 }
 
-let _syncBadgeTimer = null;
-function showSyncBadge(msg, isError = false) {
-  const el = document.getElementById('gistStatus');
+async function pushHistoryToSupabase() {
+  if (!sbClient) return;
+  const session = (await sbClient.auth.getSession()).data.session;
+  if (!session) return;
+  try {
+    const { data: existing } = await sbClient.from('grocery_history').select('id');
+    const existingIds = new Set((existing || []).map(r => r.id));
+    const currentIds = new Set(history.map(h => String(h.id || h.boughtAt)));
+    const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+    if (toDelete.length) await sbClient.from('grocery_history').delete().in('id', toDelete);
+    if (history.length) await sbClient.from('grocery_history').upsert(history.map(h => ({
+      id: String(h.id || h.boughtAt), name: h.name, qty: h.qty || null,
+      category: h.category || null, recipe: h.recipe || null, note: h.note || null,
+      bought_at: h.boughtAt || new Date().toISOString()
+    })));
+  } catch(e) { console.warn('Supabase history push:', e); }
+}
+
+async function pushTagsToSupabase() {
+  if (!sbClient) return;
+  const session = (await sbClient.auth.getSession()).data.session;
+  if (!session) return;
+  try {
+    const { data: existing } = await sbClient.from('recipe_tags').select('name');
+    const existingNames = new Set((existing || []).map(r => r.name));
+    const toDelete = [...existingNames].filter(n => !recipeTags.includes(n));
+    if (toDelete.length) await sbClient.from('recipe_tags').delete().in('name', toDelete);
+    const toInsert = recipeTags.filter(n => !existingNames.has(n));
+    if (toInsert.length) await sbClient.from('recipe_tags').insert(toInsert.map(name => ({ name })));
+  } catch(e) { console.warn('Supabase tags push:', e); }
+}
+
+async function manualSync() {
+  if (!sbClient) return;
+  updateSyncStatus('Syncing…');
+  try {
+    await syncFromSupabase();
+    renderAll(); updateFilters(); updateCount(); renderTagManager();
+    updateSyncStatus();
+  } catch { updateSyncStatus(); }
+}
+
+async function authSendOtp() {
+  const email = document.getElementById('authEmail').value.trim();
+  if (!email) return;
+  const btn = document.getElementById('authSendBtn');
+  btn.textContent = 'Sending…'; btn.disabled = true;
+  const { error } = await sbClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  if (error) {
+    document.getElementById('authMsg').innerHTML = `<span class="status-msg error">${error.message}</span>`;
+    btn.textContent = 'Send code →'; btn.disabled = false;
+  } else {
+    document.getElementById('authEmailDisplay').textContent = email;
+    document.getElementById('authStep1').style.display = 'none';
+    document.getElementById('authStep2').style.display = '';
+    setTimeout(() => document.getElementById('authOtp').focus(), 50);
+  }
+}
+
+async function authVerifyOtp() {
+  const email = document.getElementById('authEmail').value.trim();
+  const token = document.getElementById('authOtp').value.replace(/\D/g, '');
+  const btn = document.getElementById('authVerifyBtn');
+  btn.textContent = 'Signing in…'; btn.disabled = true;
+  const { error } = await sbClient.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) {
+    document.getElementById('authMsg').innerHTML = `<span class="status-msg error">${error.message}</span>`;
+    btn.textContent = 'Sign in →'; btn.disabled = false;
+  }
+}
+
+function authBack() {
+  document.getElementById('authStep2').style.display = 'none';
+  document.getElementById('authStep1').style.display = '';
+  document.getElementById('authOtp').value = '';
+  document.getElementById('authMsg').innerHTML = '';
+  const btn = document.getElementById('authSendBtn');
+  btn.textContent = 'Send code →'; btn.disabled = false;
+}
+
+async function authSignOut() {
+  if (!sbClient) return;
+  await sbClient.auth.signOut();
+}
+
+async function updateSyncStatus(msg) {
+  const el = document.getElementById('syncStatus');
   if (!el) return;
-  el.innerHTML = `<span class="status-msg ${isError ? 'error' : 'thinking'}">${msg}</span>`;
-  clearTimeout(_syncBadgeTimer);
-  _syncBadgeTimer = setTimeout(() => { el.innerHTML = ''; }, 4000);
+  if (msg) { el.textContent = msg; return; }
+  if (!sbClient) { el.textContent = ''; return; }
+  const { data: { session } } = await sbClient.auth.getSession();
+  el.innerHTML = session
+    ? `✓ Signed in as <strong>${session.user.email}</strong>`
+    : '<span style="color:var(--warn)">Not signed in</span>';
 }
 
-load();
+function subscribeToRealtime() {
+  if (!sbClient) return;
+  sbClient.channel('cartco-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, async () => {
+      await syncFromSupabase(); renderAll(); updateFilters(); updateCount(); renderTagManager();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'grocery_history' }, async () => {
+      await syncFromSupabase(); renderHistory();
+    })
+    .subscribe();
+}
+
+// ── App init ──
+async function initApp() {
+  loadFromLocalStorage();
+  renderAll(); updateFilters(); renderTagManager();
+  const key = localStorage.getItem('gco_apikey');
+  if (key) document.getElementById('apiKeyInput').value = key;
+
+  const ok = await initSupabase();
+  if (!ok) return; // No config — runs on localStorage only (local dev)
+
+  sbClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN') {
+      document.getElementById('authScreen').style.display = 'none';
+      await syncFromSupabase();
+      renderAll(); updateFilters(); updateCount(); renderTagManager();
+      subscribeToRealtime();
+      updateSyncStatus();
+    } else if (event === 'SIGNED_OUT') {
+      items = []; history = []; recipeTags = [];
+      renderAll(); updateFilters(); updateCount(); renderTagManager();
+      document.getElementById('authScreen').style.display = 'flex';
+    }
+  });
+
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (session) {
+    document.getElementById('authScreen').style.display = 'none';
+    await syncFromSupabase();
+    renderAll(); updateFilters(); updateCount(); renderTagManager();
+    subscribeToRealtime();
+    updateSyncStatus();
+  } else {
+    document.getElementById('authScreen').style.display = 'flex';
+  }
+}
+
+initApp();
 </script>
 </body>
 </html>
