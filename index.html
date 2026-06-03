@@ -1749,7 +1749,7 @@ async function authSendOtp() {
   if (!email) return;
   const btn = document.getElementById('authSendBtn');
   btn.textContent = 'Sending…'; btn.disabled = true;
-  const { error } = await sbClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  const { error } = await sbClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: window.location.origin } });
   if (error) {
     document.getElementById('authMsg').innerHTML = `<span class="status-msg error">${error.message}</span>`;
     btn.textContent = 'Send code →'; btn.disabled = false;
