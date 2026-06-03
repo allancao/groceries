@@ -257,14 +257,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div id="authStep1">
       <label class="auth-label" for="authEmail">Email</label>
       <input class="auth-input" id="authEmail" type="email" placeholder="you@example.com" autocomplete="email" />
-      <button class="auth-btn" id="authSendBtn" onclick="authSendOtp()">Send code →</button>
+      <button class="auth-btn" id="authSendBtn" onclick="authSendOtp()">Send link →</button>
     </div>
 
-    <div id="authStep2" style="display:none;">
-      <div style="font-size:14px;color:var(--muted);margin-bottom:20px;">Code sent to <strong id="authEmailDisplay" style="color:var(--text);"></strong></div>
-      <label class="auth-label" for="authOtp">6-digit code</label>
-      <input class="auth-input" id="authOtp" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="000000" maxlength="6" autocomplete="one-time-code" />
-      <button class="auth-btn" id="authVerifyBtn" onclick="authVerifyOtp()">Sign in →</button>
+    <div id="authStep2" style="display:none;text-align:center;">
+      <div style="font-size:32px;margin-bottom:16px;">✉️</div>
+      <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px;">Check your email</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:20px;">We sent a sign-in link to <strong id="authEmailDisplay" style="color:var(--text);"></strong></div>
       <button class="auth-back" onclick="authBack()">← Use a different email</button>
     </div>
 
@@ -347,6 +346,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
             <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
             A key is required — without one, only manual text entry works.
           </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">Share List</div>
+          <div id="shareStatus" style="font-size:14px;color:var(--muted);margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="settings-save" style="background:var(--surface2);color:var(--accent);border:0.5px solid var(--border2);" onclick="copyInviteLink()">Copy invite link</button>
+            <button class="settings-save" style="background:var(--surface2);color:var(--muted);border:0.5px solid var(--border2);" onclick="revokeInviteLink()">Revoke link</button>
+          </div>
+          <div class="settings-hint" style="margin-top:10px;">Anyone with the invite link can join and edit this list.</div>
         </div>
         <div class="settings-section">
           <div class="settings-label">Account & Sync</div>
@@ -1632,11 +1640,11 @@ async function nukeData() {
   if (!confirm('Delete all grocery data? This cannot be undone.')) return;
   localStorage.removeItem('gco_items'); localStorage.removeItem('gco_history'); localStorage.removeItem('gco_tags');
   items = []; history = []; recipeTags = [];
-  if (sbClient) {
+  if (sbClient && currentListId) {
     await Promise.all([
-      sbClient.from('items').delete().not('id', 'is', null),
-      sbClient.from('grocery_history').delete().not('id', 'is', null),
-      sbClient.from('recipe_tags').delete().not('name', 'is', null)
+      sbClient.from('items').delete().eq('list_id', currentListId),
+      sbClient.from('grocery_history').delete().eq('list_id', currentListId),
+      sbClient.from('recipe_tags').delete().eq('list_id', currentListId)
     ]).catch(() => {});
   }
   renderAll(); updateFilters(); updateCount(); renderTagManager(); switchTab('list');
@@ -1644,6 +1652,7 @@ async function nukeData() {
 
 // ── Supabase ──
 let sbClient = null;
+let currentListId = null;
 
 async function initSupabase() {
   try {
@@ -1656,12 +1665,32 @@ async function initSupabase() {
   } catch { return false; }
 }
 
+async function initUserList() {
+  const params = new URLSearchParams(window.location.search);
+  const inviteToken = params.get('invite') || localStorage.getItem('gco_pending_invite');
+  if (inviteToken) {
+    localStorage.removeItem('gco_pending_invite');
+    history.replaceState({}, '', window.location.pathname);
+    try {
+      const { data: listId } = await sbClient.rpc('join_list_via_invite', { invite_token: inviteToken });
+      if (listId) { currentListId = listId; return; }
+    } catch(e) { console.warn('Invite join failed:', e); }
+  }
+  const { data: memberships } = await sbClient.from('list_members').select('list_id').limit(1);
+  if (memberships && memberships.length > 0) {
+    currentListId = memberships[0].list_id;
+    return;
+  }
+  const { data: listId } = await sbClient.rpc('create_list_for_user');
+  currentListId = listId;
+}
+
 async function syncFromSupabase() {
-  if (!sbClient) return;
+  if (!sbClient || !currentListId) return;
   const [itemsRes, histRes, tagsRes] = await Promise.all([
-    sbClient.from('items').select('*').order('added_at', { ascending: false }),
-    sbClient.from('grocery_history').select('*').order('bought_at', { ascending: false }),
-    sbClient.from('recipe_tags').select('name')
+    sbClient.from('items').select('*').eq('list_id', currentListId).order('added_at', { ascending: false }),
+    sbClient.from('grocery_history').select('*').eq('list_id', currentListId).order('bought_at', { ascending: false }),
+    sbClient.from('recipe_tags').select('name').eq('list_id', currentListId)
   ]);
   if (itemsRes.error || histRes.error || tagsRes.error) return;
   items = (itemsRes.data || []).map(r => ({
@@ -1685,35 +1714,35 @@ function scheduleSbHistorySync() { clearTimeout(_sbHistTimer); _sbHistTimer = se
 function scheduleSbTagsSync() { clearTimeout(_sbTagTimer); _sbTagTimer = setTimeout(pushTagsToSupabase, 600); }
 
 async function pushItemsToSupabase() {
-  if (!sbClient) return;
+  if (!sbClient || !currentListId) return;
   const session = (await sbClient.auth.getSession()).data.session;
   if (!session) return;
   try {
-    const { data: existing } = await sbClient.from('items').select('id');
+    const { data: existing } = await sbClient.from('items').select('id').eq('list_id', currentListId);
     const existingIds = new Set((existing || []).map(r => r.id));
     const currentIds = new Set(items.map(i => String(i.id)));
     const toDelete = [...existingIds].filter(id => !currentIds.has(id));
     if (toDelete.length) await sbClient.from('items').delete().in('id', toDelete);
     if (items.length) await sbClient.from('items').upsert(items.map(i => ({
-      id: String(i.id), name: i.name, qty: i.qty || null, category: i.category || null,
-      recipe: i.recipe || null, note: i.note || null, checked: !!i.checked,
-      added_at: i.addedAt || new Date().toISOString()
+      id: String(i.id), list_id: currentListId, name: i.name, qty: i.qty || null,
+      category: i.category || null, recipe: i.recipe || null, note: i.note || null,
+      checked: !!i.checked, added_at: i.addedAt || new Date().toISOString()
     })));
   } catch(e) { console.warn('Supabase items push:', e); }
 }
 
 async function pushHistoryToSupabase() {
-  if (!sbClient) return;
+  if (!sbClient || !currentListId) return;
   const session = (await sbClient.auth.getSession()).data.session;
   if (!session) return;
   try {
-    const { data: existing } = await sbClient.from('grocery_history').select('id');
+    const { data: existing } = await sbClient.from('grocery_history').select('id').eq('list_id', currentListId);
     const existingIds = new Set((existing || []).map(r => r.id));
     const currentIds = new Set(history.map(h => String(h.id || h.boughtAt)));
     const toDelete = [...existingIds].filter(id => !currentIds.has(id));
     if (toDelete.length) await sbClient.from('grocery_history').delete().in('id', toDelete);
     if (history.length) await sbClient.from('grocery_history').upsert(history.map(h => ({
-      id: String(h.id || h.boughtAt), name: h.name, qty: h.qty || null,
+      id: String(h.id || h.boughtAt), list_id: currentListId, name: h.name, qty: h.qty || null,
       category: h.category || null, recipe: h.recipe || null, note: h.note || null,
       bought_at: h.boughtAt || new Date().toISOString()
     })));
@@ -1721,16 +1750,16 @@ async function pushHistoryToSupabase() {
 }
 
 async function pushTagsToSupabase() {
-  if (!sbClient) return;
+  if (!sbClient || !currentListId) return;
   const session = (await sbClient.auth.getSession()).data.session;
   if (!session) return;
   try {
-    const { data: existing } = await sbClient.from('recipe_tags').select('name');
+    const { data: existing } = await sbClient.from('recipe_tags').select('name').eq('list_id', currentListId);
     const existingNames = new Set((existing || []).map(r => r.name));
     const toDelete = [...existingNames].filter(n => !recipeTags.includes(n));
-    if (toDelete.length) await sbClient.from('recipe_tags').delete().in('name', toDelete);
+    if (toDelete.length) await sbClient.from('recipe_tags').delete().in('name', toDelete).eq('list_id', currentListId);
     const toInsert = recipeTags.filter(n => !existingNames.has(n));
-    if (toInsert.length) await sbClient.from('recipe_tags').insert(toInsert.map(name => ({ name })));
+    if (toInsert.length) await sbClient.from('recipe_tags').insert(toInsert.map(name => ({ name, list_id: currentListId })));
   } catch(e) { console.warn('Supabase tags push:', e); }
 }
 
@@ -1752,38 +1781,25 @@ async function authSendOtp() {
   const { error } = await sbClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: window.location.origin } });
   if (error) {
     document.getElementById('authMsg').innerHTML = `<span class="status-msg error">${error.message}</span>`;
-    btn.textContent = 'Send code →'; btn.disabled = false;
+    btn.textContent = 'Send link →'; btn.disabled = false;
   } else {
     document.getElementById('authEmailDisplay').textContent = email;
     document.getElementById('authStep1').style.display = 'none';
     document.getElementById('authStep2').style.display = '';
-    setTimeout(() => document.getElementById('authOtp').focus(), 50);
-  }
-}
-
-async function authVerifyOtp() {
-  const email = document.getElementById('authEmail').value.trim();
-  const token = document.getElementById('authOtp').value.replace(/\D/g, '');
-  const btn = document.getElementById('authVerifyBtn');
-  btn.textContent = 'Signing in…'; btn.disabled = true;
-  const { error } = await sbClient.auth.verifyOtp({ email, token, type: 'email' });
-  if (error) {
-    document.getElementById('authMsg').innerHTML = `<span class="status-msg error">${error.message}</span>`;
-    btn.textContent = 'Sign in →'; btn.disabled = false;
   }
 }
 
 function authBack() {
   document.getElementById('authStep2').style.display = 'none';
   document.getElementById('authStep1').style.display = '';
-  document.getElementById('authOtp').value = '';
   document.getElementById('authMsg').innerHTML = '';
   const btn = document.getElementById('authSendBtn');
-  btn.textContent = 'Send code →'; btn.disabled = false;
+  btn.textContent = 'Send link →'; btn.disabled = false;
 }
 
 async function authSignOut() {
   if (!sbClient) return;
+  currentListId = null;
   await sbClient.auth.signOut();
 }
 
@@ -1798,20 +1814,59 @@ async function updateSyncStatus(msg) {
     : '<span style="color:var(--warn)">Not signed in</span>';
 }
 
+async function updateShareStatus() {
+  const el = document.getElementById('shareStatus');
+  if (!el || !sbClient || !currentListId) return;
+  const { data: members } = await sbClient.from('list_members').select('user_id').eq('list_id', currentListId);
+  const { data: invite } = await sbClient.from('list_invites').select('id').eq('list_id', currentListId).maybeSingle();
+  const count = members?.length || 1;
+  el.textContent = count === 1 ? 'Just you · no active invite link' : `${count} people · ${invite ? 'invite link active' : 'no active invite link'}`;
+}
+
+async function copyInviteLink() {
+  if (!sbClient || !currentListId) return;
+  const { data: { user } } = await sbClient.auth.getUser();
+  const { data, error } = await sbClient.from('list_invites')
+    .upsert({ list_id: currentListId, created_by: user.id }, { onConflict: 'list_id' })
+    .select('id').single();
+  if (error || !data) { alert('Could not generate invite link'); return; }
+  const link = `${window.location.origin}/?invite=${data.id}`;
+  await navigator.clipboard.writeText(link);
+  document.getElementById('shareStatus').textContent = '✓ Invite link copied to clipboard!';
+  setTimeout(updateShareStatus, 3000);
+}
+
+async function revokeInviteLink() {
+  if (!sbClient || !currentListId) return;
+  await sbClient.from('list_invites').delete().eq('list_id', currentListId);
+  updateShareStatus();
+}
+
 function subscribeToRealtime() {
-  if (!sbClient) return;
+  if (!sbClient || !currentListId) return;
   sbClient.channel('cartco-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, async () => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `list_id=eq.${currentListId}` }, async () => {
       await syncFromSupabase(); renderAll(); updateFilters(); updateCount(); renderTagManager();
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'grocery_history' }, async () => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'grocery_history', filter: `list_id=eq.${currentListId}` }, async () => {
       await syncFromSupabase(); renderHistory();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'list_members', filter: `list_id=eq.${currentListId}` }, () => {
+      updateShareStatus();
     })
     .subscribe();
 }
 
 // ── App init ──
 async function initApp() {
+  // Stash invite token from URL before anything else
+  const params = new URLSearchParams(window.location.search);
+  const inviteToken = params.get('invite');
+  if (inviteToken) {
+    localStorage.setItem('gco_pending_invite', inviteToken);
+    history.replaceState({}, '', window.location.pathname);
+  }
+
   loadFromLocalStorage();
   renderAll(); updateFilters(); renderTagManager();
   const key = localStorage.getItem('gco_apikey');
@@ -1823,11 +1878,14 @@ async function initApp() {
   sbClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN') {
       document.getElementById('authScreen').style.display = 'none';
+      await initUserList();
       await syncFromSupabase();
       renderAll(); updateFilters(); updateCount(); renderTagManager();
       subscribeToRealtime();
       updateSyncStatus();
+      updateShareStatus();
     } else if (event === 'SIGNED_OUT') {
+      currentListId = null;
       items = []; history = []; recipeTags = [];
       renderAll(); updateFilters(); updateCount(); renderTagManager();
       document.getElementById('authScreen').style.display = 'flex';
@@ -1837,10 +1895,12 @@ async function initApp() {
   const { data: { session } } = await sbClient.auth.getSession();
   if (session) {
     document.getElementById('authScreen').style.display = 'none';
+    await initUserList();
     await syncFromSupabase();
     renderAll(); updateFilters(); updateCount(); renderTagManager();
     subscribeToRealtime();
     updateSyncStatus();
+    updateShareStatus();
   } else {
     document.getElementById('authScreen').style.display = 'flex';
   }
