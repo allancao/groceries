@@ -252,20 +252,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 <div id="authScreen" class="auth-screen" style="display:none;">
   <div class="auth-card">
     <div class="auth-title">Cart<em>&</em>Co</div>
-    <div class="auth-sub">Sign in to sync your grocery list across all your devices.</div>
+    <div class="auth-sub" id="authSub">Sign in to sync your grocery list across all your devices.</div>
 
-    <div id="authStep1">
-      <label class="auth-label" for="authEmail">Email</label>
-      <input class="auth-input" id="authEmail" type="email" placeholder="you@example.com" autocomplete="email" />
-      <button class="auth-btn" id="authSendBtn" onclick="authSendOtp()">Send link →</button>
-    </div>
-
-    <div id="authStep2" style="display:none;text-align:center;">
-      <div style="font-size:32px;margin-bottom:16px;">✉️</div>
-      <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px;">Check your email</div>
-      <div style="font-size:14px;color:var(--muted);margin-bottom:20px;">We sent a sign-in link to <strong id="authEmailDisplay" style="color:var(--text);"></strong></div>
-      <button class="auth-back" onclick="authBack()">← Use a different email</button>
-    </div>
+    <label class="auth-label" for="authEmail">Email</label>
+    <input class="auth-input" id="authEmail" type="email" placeholder="you@example.com" autocomplete="email" />
+    <label class="auth-label" for="authPassword" style="margin-top:14px;">Password</label>
+    <input class="auth-input" id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')authSubmit()" />
+    <button class="auth-btn" id="authSubmitBtn" onclick="authSubmit()">Sign in →</button>
+    <button class="auth-back" id="authToggleBtn" onclick="authToggleMode()">Create an account</button>
 
     <div id="authMsg" style="min-height:36px;margin-top:12px;"></div>
   </div>
@@ -1773,28 +1768,38 @@ async function manualSync() {
   } catch { updateSyncStatus(); }
 }
 
-async function authSendOtp() {
-  const email = document.getElementById('authEmail').value.trim();
-  if (!email) return;
-  const btn = document.getElementById('authSendBtn');
-  btn.textContent = 'Sending…'; btn.disabled = true;
-  const { error } = await sbClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: window.location.origin } });
-  if (error) {
-    document.getElementById('authMsg').innerHTML = `<span class="status-msg error">${error.message}</span>`;
-    btn.textContent = 'Send link →'; btn.disabled = false;
-  } else {
-    document.getElementById('authEmailDisplay').textContent = email;
-    document.getElementById('authStep1').style.display = 'none';
-    document.getElementById('authStep2').style.display = '';
-  }
+let _authMode = 'signin';
+
+function authToggleMode() {
+  _authMode = _authMode === 'signin' ? 'signup' : 'signin';
+  const isSignIn = _authMode === 'signin';
+  document.getElementById('authSub').textContent = isSignIn
+    ? 'Sign in to sync your grocery list across all your devices.'
+    : 'Create an account to get started.';
+  document.getElementById('authSubmitBtn').textContent = isSignIn ? 'Sign in →' : 'Create account →';
+  document.getElementById('authToggleBtn').textContent = isSignIn ? 'Create an account' : 'Already have an account? Sign in';
+  document.getElementById('authPassword').autocomplete = isSignIn ? 'current-password' : 'new-password';
+  document.getElementById('authMsg').innerHTML = '';
 }
 
-function authBack() {
-  document.getElementById('authStep2').style.display = 'none';
-  document.getElementById('authStep1').style.display = '';
-  document.getElementById('authMsg').innerHTML = '';
-  const btn = document.getElementById('authSendBtn');
-  btn.textContent = 'Send link →'; btn.disabled = false;
+async function authSubmit() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) return;
+  const btn = document.getElementById('authSubmitBtn');
+  btn.textContent = _authMode === 'signin' ? 'Signing in…' : 'Creating…';
+  btn.disabled = true;
+  const { data, error } = _authMode === 'signin'
+    ? await sbClient.auth.signInWithPassword({ email, password })
+    : await sbClient.auth.signUp({ email, password });
+  if (error) {
+    document.getElementById('authMsg').innerHTML = `<span class="status-msg error">${error.message}</span>`;
+    btn.textContent = _authMode === 'signin' ? 'Sign in →' : 'Create account →';
+    btn.disabled = false;
+  } else if (_authMode === 'signup' && !data.session) {
+    document.getElementById('authMsg').innerHTML = `<span class="status-msg">Check your email to confirm your account.</span>`;
+    btn.textContent = 'Create account →'; btn.disabled = false;
+  }
 }
 
 async function authSignOut() {
