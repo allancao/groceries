@@ -1831,12 +1831,16 @@ async function updateShareStatus() {
 
 async function copyInviteLink() {
   if (!sbClient || !currentListId) return;
-  const { data: { user } } = await sbClient.auth.getUser();
-  const { data, error } = await sbClient.from('list_invites')
-    .upsert({ list_id: currentListId, created_by: user.id }, { onConflict: 'list_id' })
-    .select('id').single();
-  if (error || !data) { alert('Could not generate invite link'); return; }
-  const link = `${window.location.origin}/?invite=${data.id}`;
+  let { data: invite } = await sbClient.from('list_invites').select('id').eq('list_id', currentListId).maybeSingle();
+  if (!invite) {
+    const { data: { user } } = await sbClient.auth.getUser();
+    const { data: created, error } = await sbClient.from('list_invites')
+      .insert({ list_id: currentListId, created_by: user.id })
+      .select('id').single();
+    if (error || !created) { alert('Could not generate invite link'); return; }
+    invite = created;
+  }
+  const link = `${window.location.origin}/?invite=${invite.id}`;
   await navigator.clipboard.writeText(link);
   document.getElementById('shareStatus').textContent = '✓ Invite link copied to clipboard!';
   setTimeout(updateShareStatus, 3000);
