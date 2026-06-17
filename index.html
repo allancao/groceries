@@ -1666,7 +1666,7 @@ async function initUserList() {
   const inviteToken = params.get('invite') || localStorage.getItem('gco_pending_invite');
   if (inviteToken) {
     localStorage.removeItem('gco_pending_invite');
-    history.replaceState({}, '', window.location.pathname);
+    window.history.replaceState({}, '', window.location.pathname);
     try {
       const { data: listId } = await sbClient.rpc('join_list_via_invite', { invite_token: inviteToken });
       if (listId) { currentListId = listId; return; }
@@ -1882,7 +1882,7 @@ async function initApp() {
   const inviteToken = params.get('invite');
   if (inviteToken) {
     localStorage.setItem('gco_pending_invite', inviteToken);
-    history.replaceState({}, '', window.location.pathname);
+    window.history.replaceState({}, '', window.location.pathname);
   }
 
   loadFromLocalStorage();
