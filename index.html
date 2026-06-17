@@ -1672,7 +1672,8 @@ async function initUserList() {
       if (listId) { currentListId = listId; return; }
     } catch(e) { console.warn('Invite join failed:', e); }
   }
-  const { data: memberships } = await sbClient.from('list_members').select('list_id').limit(1);
+  const { data: memberships } = await sbClient
+    .from('list_members').select('list_id').order('joined_at', { ascending: true }).limit(1);
   if (memberships && memberships.length > 0) {
     currentListId = memberships[0].list_id;
     return;
@@ -1689,6 +1690,13 @@ async function syncFromSupabase() {
     sbClient.from('recipe_tags').select('name').eq('list_id', currentListId)
   ]);
   if (itemsRes.error || histRes.error || tagsRes.error) return;
+  const remoteEmpty = !itemsRes.data?.length && !histRes.data?.length && !tagsRes.data?.length;
+  if (remoteEmpty && (items.length || history.length || recipeTags.length)) {
+    await pushItemsToSupabase();
+    await pushHistoryToSupabase();
+    await pushTagsToSupabase();
+    return;
+  }
   items = (itemsRes.data || []).map(r => ({
     id: r.id, name: r.name, qty: r.qty, category: r.category,
     recipe: r.recipe, note: r.note, checked: r.checked, addedAt: r.added_at
