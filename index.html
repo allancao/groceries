@@ -174,6 +174,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 /* ── Shared bottom sheet base ── */
 .sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
 .sheet-backdrop.visible { opacity: 1; pointer-events: all; }
+/* Toast */
+#appToast { position: fixed; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(80px); background: var(--text); color: var(--bg); padding: 12px 20px; border-radius: 10px; font-size: 14px; font-family: var(--font-ui); z-index: 500; transition: transform 0.25s ease, opacity 0.25s ease; opacity: 0; pointer-events: none; white-space: nowrap; max-width: calc(100vw - 32px); }
+#appToast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+#appToast.error { background: var(--accent2); color: #fff; }
 /* Auth screen */
 .auth-screen { position: fixed; inset: 0; background: var(--bg); z-index: 300; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; }
 .auth-card { width: 100%; max-width: 340px; }
@@ -266,6 +270,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div id="authMsg" style="min-height:36px;margin-top:12px;"></div>
   </div>
 </div>
+
+<div id="appToast"></div>
 
 <div id="app">
   <div class="header">
@@ -1667,10 +1673,18 @@ async function initUserList() {
   if (inviteToken) {
     localStorage.removeItem('gco_pending_invite');
     window.history.replaceState({}, '', window.location.pathname);
+    let joinedListId = null;
     try {
       const { data: listId } = await sbClient.rpc('join_list_via_invite', { invite_token: inviteToken });
-      if (listId) { currentListId = listId; return; }
+      joinedListId = listId;
     } catch(e) { console.warn('Invite join failed:', e); }
+    if (joinedListId) {
+      currentListId = joinedListId;
+      showToast('Joined shared list!');
+      return;
+    } else {
+      showToast('Invite link is invalid or has expired.', 'error');
+    }
   }
   const { data: memberships } = await sbClient
     .from('list_members').select('list_id').order('joined_at', { ascending: true }).limit(1);
@@ -1815,6 +1829,16 @@ async function authSignOut() {
   if (!sbClient) return;
   currentListId = null;
   await sbClient.auth.signOut();
+}
+
+let _toastTimer = null;
+function showToast(msg, type = '') {
+  const el = document.getElementById('appToast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = ''; }, 3500);
 }
 
 async function updateSyncStatus(msg) {
