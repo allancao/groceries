@@ -1,4 +1,4 @@
--- Cart&Co Supabase schema
+-- CowGetsGroceries Supabase schema
 
 -- Lists
 create table public.lists (
@@ -8,10 +8,6 @@ create table public.lists (
   created_at timestamptz not null default now()
 );
 alter table public.lists enable row level security;
-create policy "members can view list" on public.lists
-  for select using (exists (select 1 from public.list_members where list_id = lists.id and user_id = auth.uid()));
-create policy "owner can update list" on public.lists
-  for update using (created_by = auth.uid());
 
 -- List members
 create table public.list_members (
@@ -22,8 +18,6 @@ create table public.list_members (
   primary key (list_id, user_id)
 );
 alter table public.list_members enable row level security;
-create policy "members can view members" on public.list_members
-  for select using (exists (select 1 from public.list_members lm where lm.list_id = list_members.list_id and lm.user_id = auth.uid()));
 
 -- Invite tokens (one per list)
 create table public.list_invites (
@@ -33,10 +27,6 @@ create table public.list_invites (
   created_at timestamptz not null default now()
 );
 alter table public.list_invites enable row level security;
-create policy "anyone can read invite" on public.list_invites for select using (true);
-create policy "members can create invite" on public.list_invites
-  for insert with check (exists (select 1 from public.list_members where list_id = list_invites.list_id and user_id = auth.uid()));
-create policy "creator can delete invite" on public.list_invites for delete using (created_by = auth.uid());
 
 -- Items (list-scoped)
 create table public.items (
@@ -51,9 +41,6 @@ create table public.items (
   added_at  timestamptz not null default now()
 );
 alter table public.items enable row level security;
-create policy "list members manage items" on public.items
-  for all using (exists (select 1 from public.list_members where list_id = items.list_id and user_id = auth.uid()))
-  with check (exists (select 1 from public.list_members where list_id = items.list_id and user_id = auth.uid()));
 
 -- Purchase history (list-scoped)
 create table public.grocery_history (
@@ -67,9 +54,6 @@ create table public.grocery_history (
   bought_at timestamptz not null default now()
 );
 alter table public.grocery_history enable row level security;
-create policy "list members manage history" on public.grocery_history
-  for all using (exists (select 1 from public.list_members where list_id = grocery_history.list_id and user_id = auth.uid()))
-  with check (exists (select 1 from public.list_members where list_id = grocery_history.list_id and user_id = auth.uid()));
 
 -- Recipe tags (list-scoped)
 create table public.recipe_tags (
@@ -79,9 +63,41 @@ create table public.recipe_tags (
   unique(list_id, name)
 );
 alter table public.recipe_tags enable row level security;
+
+-- Security-definer membership check: avoids recursive RLS on list_members
+create or replace function public.is_list_member(p_list_id uuid)
+returns boolean language sql security definer stable as $$
+  select exists (
+    select 1 from public.list_members
+    where list_id = p_list_id and user_id = auth.uid()
+  )
+$$;
+
+-- RLS policies (all use is_list_member to prevent infinite recursion)
+create policy "members can view list" on public.lists
+  for select using (public.is_list_member(id));
+create policy "owner can update list" on public.lists
+  for update using (created_by = auth.uid());
+
+create policy "members can view members" on public.list_members
+  for select using (public.is_list_member(list_id));
+
+create policy "anyone can read invite" on public.list_invites for select using (true);
+create policy "members can create invite" on public.list_invites
+  for insert with check (public.is_list_member(list_id));
+create policy "creator can delete invite" on public.list_invites for delete using (created_by = auth.uid());
+
+create policy "list members manage items" on public.items
+  for all using (public.is_list_member(list_id))
+  with check (public.is_list_member(list_id));
+
+create policy "list members manage history" on public.grocery_history
+  for all using (public.is_list_member(list_id))
+  with check (public.is_list_member(list_id));
+
 create policy "list members manage tags" on public.recipe_tags
-  for all using (exists (select 1 from public.list_members where list_id = recipe_tags.list_id and user_id = auth.uid()))
-  with check (exists (select 1 from public.list_members where list_id = recipe_tags.list_id and user_id = auth.uid()));
+  for all using (public.is_list_member(list_id))
+  with check (public.is_list_member(list_id));
 
 -- Security-definer RPCs
 create or replace function public.create_list_for_user()
@@ -104,6 +120,15 @@ begin
   on conflict (list_id, user_id) do nothing;
   return v_list_id;
 end; $$;
+
+-- Table access grants (RLS policies enforce row-level restrictions)
+grant select, insert, update, delete on public.lists to authenticated;
+grant select, insert, update, delete on public.list_members to authenticated;
+grant select, insert, update, delete on public.list_invites to authenticated;
+grant select, insert, update, delete on public.items to authenticated;
+grant select, insert, update, delete on public.grocery_history to authenticated;
+grant select, insert, update, delete on public.recipe_tags to authenticated;
+grant select on public.list_invites to anon;
 
 -- Enable realtime
 alter publication supabase_realtime add table public.items;
