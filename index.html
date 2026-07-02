@@ -190,6 +190,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .auth-btn { display: block; width: 100%; padding: 13px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); transition: opacity 0.15s; }
 .auth-btn:disabled { opacity: 0.5; pointer-events: none; }
 .auth-back { background: none; border: none; color: var(--hint); font-size: 13px; font-family: var(--font-ui); cursor: pointer; padding: 10px 0 0; display: block; }
+.auth-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0; color: var(--hint); font-size: 12px; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 0.5px; background: var(--border2); }
+.auth-btn-alt { display: block; width: 100%; padding: 13px; border-radius: var(--radius-sm); background: var(--surface2); color: var(--accent); border: 0.5px solid var(--border2); font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-ui); transition: opacity 0.15s; }
+.auth-btn-alt:disabled { opacity: 0.5; pointer-events: none; }
 .auth-notice { margin-top: 10px; font-size: 13px; color: var(--muted); text-align: center; }
 
 .bottom-sheet { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%); width: 100%; max-width: 480px; background: var(--surface); border-radius: 20px 20px 0 0; z-index: 101; transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); padding-bottom: env(safe-area-inset-bottom, 16px); box-shadow: 0 -4px 24px rgba(0,0,0,0.12); }
@@ -266,6 +270,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       onkeydown="if(event.key==='Enter')authSubmit()" />
     <button class="auth-btn" id="authSubmitBtn" onclick="authSubmit()">Sign in →</button>
     <button class="auth-back" id="authToggleBtn" onclick="authToggleMode()">Create an account</button>
+
+    <div class="auth-divider">or</div>
+    <button class="auth-btn-alt" id="authMagicBtn" onclick="authMagicLink()">Email me a login link</button>
+    <div class="auth-hint" style="font-size:12px;color:var(--hint);margin-top:8px;text-align:center;">No password needed — we'll email you a link to sign in.</div>
 
     <div id="authMsg" style="min-height:36px;margin-top:12px;"></div>
   </div>
@@ -1825,6 +1833,33 @@ async function authSubmit() {
   }
 }
 
+async function authMagicLink() {
+  const email = document.getElementById('authEmail').value.trim();
+  if (!email) {
+    document.getElementById('authMsg').innerHTML = `<span class="status-msg error">Enter your email first.</span>`;
+    return;
+  }
+  const btn = document.getElementById('authMagicBtn');
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+  // Carry any pending invite through the email link so it survives even if
+  // the link opens in a different browser than the one that requested it.
+  const pending = localStorage.getItem('gco_pending_invite');
+  const redirectTo = window.location.origin + (pending ? '/?invite=' + pending : '/');
+  const { error } = await sbClient.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: redirectTo }
+  });
+  if (error) {
+    document.getElementById('authMsg').innerHTML = `<span class="status-msg error">${error.message}</span>`;
+    btn.textContent = 'Email me a login link';
+    btn.disabled = false;
+  } else {
+    document.getElementById('authMsg').innerHTML = `<span class="status-msg">✓ Check your email for a sign-in link.</span>`;
+    btn.textContent = 'Link sent — check your email';
+  }
+}
+
 async function authSignOut() {
   if (!sbClient) return;
   currentListId = null;
@@ -1906,7 +1941,11 @@ async function initApp() {
   const inviteToken = params.get('invite');
   if (inviteToken) {
     localStorage.setItem('gco_pending_invite', inviteToken);
-    window.history.replaceState({}, '', window.location.pathname);
+    // Remove only the invite param — preserve any auth token (?code=… / #access_token=…)
+    // that a magic-link redirect appended, so Supabase can still establish the session.
+    params.delete('invite');
+    const qs = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
   }
 
   loadFromLocalStorage();
