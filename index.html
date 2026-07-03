@@ -1739,7 +1739,23 @@ async function syncFromSupabase() {
   localStorage.setItem('gco_items', JSON.stringify(items));
   localStorage.setItem('gco_history', JSON.stringify(history));
   localStorage.setItem('gco_tags', JSON.stringify(recipeTags));
+  // Record what the server currently holds as our deletion baseline.
+  setSyncedItems(items.map(i => String(i.id)));
+  setSyncedHist(history.map(h => String(h.id || h.boughtAt)));
+  setSyncedTags(recipeTags);
 }
+
+// Sync baseline: the ids/names this device last saw on the server. Deletions are
+// computed against THIS set (things we knowingly removed) — never against the full
+// remote set. Otherwise a device that's merely behind on syncing would delete other
+// members' items. An empty baseline means "delete nothing", which is the safe default.
+let syncedItemIds = new Set(), syncedHistIds = new Set(), syncedTagNames = new Set();
+try { syncedItemIds  = new Set(JSON.parse(localStorage.getItem('gco_synced_items') || '[]')); } catch {}
+try { syncedHistIds  = new Set(JSON.parse(localStorage.getItem('gco_synced_hist')  || '[]')); } catch {}
+try { syncedTagNames = new Set(JSON.parse(localStorage.getItem('gco_synced_tags')  || '[]')); } catch {}
+function setSyncedItems(ids)  { syncedItemIds  = new Set(ids);   localStorage.setItem('gco_synced_items', JSON.stringify([...syncedItemIds])); }
+function setSyncedHist(ids)   { syncedHistIds  = new Set(ids);   localStorage.setItem('gco_synced_hist',  JSON.stringify([...syncedHistIds])); }
+function setSyncedTags(names) { syncedTagNames = new Set(names); localStorage.setItem('gco_synced_tags',  JSON.stringify([...syncedTagNames])); }
 
 // Debounced push helpers
 let _sbItemTimer = null, _sbHistTimer = null, _sbTagTimer = null;
@@ -1755,13 +1771,16 @@ async function pushItemsToSupabase() {
     const { data: existing } = await sbClient.from('items').select('id').eq('list_id', currentListId);
     const existingIds = new Set((existing || []).map(r => r.id));
     const currentIds = new Set(items.map(i => String(i.id)));
-    const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+    // Delete only items THIS device knowingly removed (were in our baseline, now
+    // gone locally, and still on the server). Never touch rows we never synced.
+    const toDelete = [...syncedItemIds].filter(id => !currentIds.has(id) && existingIds.has(id));
     if (toDelete.length) await sbClient.from('items').delete().in('id', toDelete);
     if (items.length) await sbClient.from('items').upsert(items.map(i => ({
       id: String(i.id), list_id: currentListId, name: i.name, qty: i.qty || null,
       category: i.category || null, recipe: i.recipe || null, note: i.note || null,
       checked: !!i.checked, added_at: i.addedAt || new Date().toISOString()
     })));
+    setSyncedItems([...currentIds]);
   } catch(e) { console.warn('Supabase items push:', e); }
 }
 
@@ -1773,13 +1792,14 @@ async function pushHistoryToSupabase() {
     const { data: existing } = await sbClient.from('grocery_history').select('id').eq('list_id', currentListId);
     const existingIds = new Set((existing || []).map(r => r.id));
     const currentIds = new Set(history.map(h => String(h.id || h.boughtAt)));
-    const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+    const toDelete = [...syncedHistIds].filter(id => !currentIds.has(id) && existingIds.has(id));
     if (toDelete.length) await sbClient.from('grocery_history').delete().in('id', toDelete);
     if (history.length) await sbClient.from('grocery_history').upsert(history.map(h => ({
       id: String(h.id || h.boughtAt), list_id: currentListId, name: h.name, qty: h.qty || null,
       category: h.category || null, recipe: h.recipe || null, note: h.note || null,
       bought_at: h.boughtAt || new Date().toISOString()
     })));
+    setSyncedHist([...currentIds]);
   } catch(e) { console.warn('Supabase history push:', e); }
 }
 
@@ -1790,10 +1810,11 @@ async function pushTagsToSupabase() {
   try {
     const { data: existing } = await sbClient.from('recipe_tags').select('name').eq('list_id', currentListId);
     const existingNames = new Set((existing || []).map(r => r.name));
-    const toDelete = [...existingNames].filter(n => !recipeTags.includes(n));
+    const toDelete = [...syncedTagNames].filter(n => !recipeTags.includes(n) && existingNames.has(n));
     if (toDelete.length) await sbClient.from('recipe_tags').delete().in('name', toDelete).eq('list_id', currentListId);
     const toInsert = recipeTags.filter(n => !existingNames.has(n));
     if (toInsert.length) await sbClient.from('recipe_tags').insert(toInsert.map(name => ({ name, list_id: currentListId })));
+    setSyncedTags([...recipeTags]);
   } catch(e) { console.warn('Supabase tags push:', e); }
 }
 
@@ -1994,6 +2015,8 @@ async function initApp() {
       _enterAppPromise = null;
       if (_rtChannel) { sbClient.removeChannel(_rtChannel); _rtChannel = null; }
       localStorage.removeItem('gco_list_id');
+      ['gco_synced_items','gco_synced_hist','gco_synced_tags'].forEach(k => localStorage.removeItem(k));
+      syncedItemIds = new Set(); syncedHistIds = new Set(); syncedTagNames = new Set();
       currentListId = null;
       items = []; history = []; recipeTags = [];
       renderAll(); updateFilters(); updateCount(); renderTagManager();
