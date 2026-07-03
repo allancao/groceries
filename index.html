@@ -1678,6 +1678,7 @@ async function initSupabase() {
 async function initUserList() {
   const params = new URLSearchParams(window.location.search);
   const inviteToken = params.get('invite') || localStorage.getItem('gco_pending_invite');
+  // 1. A pending invite always wins: join that list and make it the sticky choice.
   if (inviteToken) {
     localStorage.removeItem('gco_pending_invite');
     window.history.replaceState({}, '', window.location.pathname);
@@ -1688,20 +1689,27 @@ async function initUserList() {
     } catch(e) { console.warn('Invite join failed:', e); }
     if (joinedListId) {
       currentListId = joinedListId;
+      localStorage.setItem('gco_list_id', joinedListId);
       showToast('Joined shared list!');
       return;
     } else {
       showToast('Invite link is invalid or has expired.', 'error');
     }
   }
+  // 2. Load all memberships once.
   const { data: memberships } = await sbClient
-    .from('list_members').select('list_id').order('joined_at', { ascending: true }).limit(1);
-  if (memberships && memberships.length > 0) {
-    currentListId = memberships[0].list_id;
-    return;
-  }
+    .from('list_members').select('list_id').order('joined_at', { ascending: true });
+  const ids = (memberships || []).map(m => m.list_id);
+  // 3. Prefer the list we last used, if we're still a member — keeps both
+  //    devices pinned to the same shared list instead of guessing each load.
+  const saved = localStorage.getItem('gco_list_id');
+  if (saved && ids.includes(saved)) { currentListId = saved; return; }
+  // 4. Otherwise fall back to the oldest membership.
+  if (ids.length) { currentListId = ids[0]; localStorage.setItem('gco_list_id', ids[0]); return; }
+  // 5. Brand-new user with no list yet — create one.
   const { data: listId } = await sbClient.rpc('create_list_for_user');
   currentListId = listId;
+  localStorage.setItem('gco_list_id', listId);
 }
 
 async function syncFromSupabase() {
@@ -1919,9 +1927,13 @@ async function revokeInviteLink() {
   updateShareStatus();
 }
 
+let _rtChannel = null;
 function subscribeToRealtime() {
   if (!sbClient || !currentListId) return;
-  sbClient.channel('cartco-changes')
+  // Tear down any existing subscription first so we never stack duplicate
+  // channels (or keep one pointed at a stale list) across re-inits.
+  if (_rtChannel) { sbClient.removeChannel(_rtChannel); _rtChannel = null; }
+  _rtChannel = sbClient.channel('cartco-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `list_id=eq.${currentListId}` }, async () => {
       await syncFromSupabase(); renderAll(); updateFilters(); updateCount(); renderTagManager();
     })
@@ -1932,6 +1944,24 @@ function subscribeToRealtime() {
       updateShareStatus();
     })
     .subscribe();
+}
+
+// Single, deduplicated post-sign-in init. Both the SIGNED_IN event and the
+// initial getSession() check can fire on load; without this guard they run
+// initUserList() concurrently and can race into creating a duplicate list.
+let _enterAppPromise = null;
+function enterApp() {
+  if (_enterAppPromise) return _enterAppPromise;
+  _enterAppPromise = (async () => {
+    document.getElementById('authScreen').style.display = 'none';
+    await initUserList();
+    await syncFromSupabase();
+    renderAll(); updateFilters(); updateCount(); renderTagManager();
+    subscribeToRealtime();
+    updateSyncStatus();
+    updateShareStatus();
+  })();
+  return _enterAppPromise;
 }
 
 // ── App init ──
@@ -1957,15 +1987,13 @@ async function initApp() {
   if (!ok) return; // No config — runs on localStorage only (local dev)
 
   sbClient.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN') {
-      document.getElementById('authScreen').style.display = 'none';
-      await initUserList();
-      await syncFromSupabase();
-      renderAll(); updateFilters(); updateCount(); renderTagManager();
-      subscribeToRealtime();
-      updateSyncStatus();
-      updateShareStatus();
+    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+      if (session) await enterApp();
+      else document.getElementById('authScreen').style.display = 'flex';
     } else if (event === 'SIGNED_OUT') {
+      _enterAppPromise = null;
+      if (_rtChannel) { sbClient.removeChannel(_rtChannel); _rtChannel = null; }
+      localStorage.removeItem('gco_list_id');
       currentListId = null;
       items = []; history = []; recipeTags = [];
       renderAll(); updateFilters(); updateCount(); renderTagManager();
@@ -1973,18 +2001,11 @@ async function initApp() {
     }
   });
 
+  // Fallback in case INITIAL_SESSION doesn't fire (older supabase-js): if a
+  // session already exists, enter the app. enterApp() dedupes with the listener.
   const { data: { session } } = await sbClient.auth.getSession();
-  if (session) {
-    document.getElementById('authScreen').style.display = 'none';
-    await initUserList();
-    await syncFromSupabase();
-    renderAll(); updateFilters(); updateCount(); renderTagManager();
-    subscribeToRealtime();
-    updateSyncStatus();
-    updateShareStatus();
-  } else {
-    document.getElementById('authScreen').style.display = 'flex';
-  }
+  if (session) await enterApp();
+  else document.getElementById('authScreen').style.display = 'flex';
 }
 
 initApp();
