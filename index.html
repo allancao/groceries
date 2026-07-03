@@ -1651,11 +1651,17 @@ async function nukeData() {
   localStorage.removeItem('gco_items'); localStorage.removeItem('gco_history'); localStorage.removeItem('gco_tags');
   items = []; history = []; recipeTags = [];
   if (sbClient && currentListId) {
+    const [itRes, hiRes, tgRes] = await Promise.all([
+      sbClient.from('items').select('id').eq('list_id', currentListId),
+      sbClient.from('grocery_history').select('id').eq('list_id', currentListId),
+      sbClient.from('recipe_tags').select('name').eq('list_id', currentListId)
+    ]);
     await Promise.all([
-      sbClient.from('items').delete().eq('list_id', currentListId),
-      sbClient.from('grocery_history').delete().eq('list_id', currentListId),
-      sbClient.from('recipe_tags').delete().eq('list_id', currentListId)
+      sbClient.rpc('delete_items',   { p_ids: (itRes.data || []).map(r => r.id) }),
+      sbClient.rpc('delete_history', { p_ids: (hiRes.data || []).map(r => r.id) }),
+      sbClient.rpc('delete_tags',    { p_list: currentListId, p_names: (tgRes.data || []).map(r => r.name) })
     ]).catch(() => {});
+    setSyncedItems([]); setSyncedHist([]); setSyncedTags([]);
   }
   renderAll(); updateFilters(); updateCount(); renderTagManager(); switchTab('list');
 }
@@ -1774,7 +1780,7 @@ async function pushItemsToSupabase() {
     // Delete only items THIS device knowingly removed (were in our baseline, now
     // gone locally, and still on the server). Never touch rows we never synced.
     const toDelete = [...syncedItemIds].filter(id => !currentIds.has(id) && existingIds.has(id));
-    if (toDelete.length) await sbClient.from('items').delete().in('id', toDelete);
+    if (toDelete.length) await sbClient.rpc('delete_items', { p_ids: toDelete });
     if (items.length) await sbClient.from('items').upsert(items.map(i => ({
       id: String(i.id), list_id: currentListId, name: i.name, qty: i.qty || null,
       category: i.category || null, recipe: i.recipe || null, note: i.note || null,
@@ -1793,7 +1799,7 @@ async function pushHistoryToSupabase() {
     const existingIds = new Set((existing || []).map(r => r.id));
     const currentIds = new Set(history.map(h => String(h.id || h.boughtAt)));
     const toDelete = [...syncedHistIds].filter(id => !currentIds.has(id) && existingIds.has(id));
-    if (toDelete.length) await sbClient.from('grocery_history').delete().in('id', toDelete);
+    if (toDelete.length) await sbClient.rpc('delete_history', { p_ids: toDelete });
     if (history.length) await sbClient.from('grocery_history').upsert(history.map(h => ({
       id: String(h.id || h.boughtAt), list_id: currentListId, name: h.name, qty: h.qty || null,
       category: h.category || null, recipe: h.recipe || null, note: h.note || null,
@@ -1811,7 +1817,7 @@ async function pushTagsToSupabase() {
     const { data: existing } = await sbClient.from('recipe_tags').select('name').eq('list_id', currentListId);
     const existingNames = new Set((existing || []).map(r => r.name));
     const toDelete = [...syncedTagNames].filter(n => !recipeTags.includes(n) && existingNames.has(n));
-    if (toDelete.length) await sbClient.from('recipe_tags').delete().in('name', toDelete).eq('list_id', currentListId);
+    if (toDelete.length) await sbClient.rpc('delete_tags', { p_list: currentListId, p_names: toDelete });
     const toInsert = recipeTags.filter(n => !existingNames.has(n));
     if (toInsert.length) await sbClient.from('recipe_tags').insert(toInsert.map(name => ({ name, list_id: currentListId })));
     setSyncedTags([...recipeTags]);

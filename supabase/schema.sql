@@ -121,14 +121,34 @@ begin
   return v_list_id;
 end; $$;
 
--- Table access grants (RLS policies enforce row-level restrictions)
+-- Table access grants (RLS policies enforce row-level restrictions).
+-- NOTE: content tables deliberately do NOT grant DELETE to clients. A buggy or
+-- out-of-sync client doing a bulk "delete everything not in my local copy" could
+-- otherwise wipe a shared list. Deletes go through the scoped RPCs below instead.
 grant select, insert, update, delete on public.lists to authenticated;
 grant select, insert, update, delete on public.list_members to authenticated;
 grant select, insert, update, delete on public.list_invites to authenticated;
-grant select, insert, update, delete on public.items to authenticated;
-grant select, insert, update, delete on public.grocery_history to authenticated;
-grant select, insert, update, delete on public.recipe_tags to authenticated;
+grant select, insert, update on public.items to authenticated;
+grant select, insert, update on public.grocery_history to authenticated;
+grant select, insert, update on public.recipe_tags to authenticated;
 grant select on public.list_invites to anon;
+
+-- Scoped delete RPCs: a client may only delete rows in lists it belongs to.
+create or replace function public.delete_items(p_ids text[])
+returns void language sql security definer as $$
+  delete from public.items where id = any(p_ids) and public.is_list_member(list_id);
+$$;
+create or replace function public.delete_history(p_ids text[])
+returns void language sql security definer as $$
+  delete from public.grocery_history where id = any(p_ids) and public.is_list_member(list_id);
+$$;
+create or replace function public.delete_tags(p_list uuid, p_names text[])
+returns void language sql security definer as $$
+  delete from public.recipe_tags where list_id = p_list and name = any(p_names) and public.is_list_member(list_id);
+$$;
+grant execute on function public.delete_items(text[])  to authenticated;
+grant execute on function public.delete_history(text[]) to authenticated;
+grant execute on function public.delete_tags(uuid, text[]) to authenticated;
 
 -- Enable realtime
 alter publication supabase_realtime add table public.items;
