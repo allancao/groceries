@@ -1661,7 +1661,7 @@ async function nukeData() {
       sbClient.rpc('delete_history', { p_ids: (hiRes.data || []).map(r => r.id) }),
       sbClient.rpc('delete_tags',    { p_list: currentListId, p_names: (tgRes.data || []).map(r => r.name) })
     ]).catch(() => {});
-    setSyncedItems([]); setSyncedHist([]); setSyncedTags([]);
+    setSyncedItemState([]); setSyncedHist([]); setSyncedTags([]);
   }
   renderAll(); updateFilters(); updateCount(); renderTagManager(); switchTab('list');
 }
@@ -1720,6 +1720,16 @@ async function initUserList() {
 
 async function syncFromSupabase() {
   if (!sbClient || !currentListId) return;
+  // Unsynced local edits? Push them instead of pulling — a pull now would
+  // overwrite the user's tap (check/delete/add) before its debounced push fires.
+  // Our push echoes back a realtime event, and that later pull converges cleanly.
+  if (_dirtyItems || _dirtyHist || _dirtyTags) {
+    clearTimeout(_sbItemTimer); clearTimeout(_sbHistTimer); clearTimeout(_sbTagTimer);
+    if (_dirtyItems) await pushItemsToSupabase();
+    if (_dirtyHist) await pushHistoryToSupabase();
+    if (_dirtyTags) await pushTagsToSupabase();
+    return;
+  }
   const [itemsRes, histRes, tagsRes] = await Promise.all([
     sbClient.from('items').select('*').eq('list_id', currentListId).order('added_at', { ascending: false }),
     sbClient.from('grocery_history').select('*').eq('list_id', currentListId).order('bought_at', { ascending: false }),
@@ -1745,8 +1755,8 @@ async function syncFromSupabase() {
   localStorage.setItem('gco_items', JSON.stringify(items));
   localStorage.setItem('gco_history', JSON.stringify(history));
   localStorage.setItem('gco_tags', JSON.stringify(recipeTags));
-  // Record what the server currently holds as our deletion baseline.
-  setSyncedItems(items.map(i => String(i.id)));
+  // Record what the server currently holds as our deletion + change baseline.
+  setSyncedItemState(items.map(itemPayload));
   setSyncedHist(history.map(h => String(h.id || h.boughtAt)));
   setSyncedTags(recipeTags);
 }
@@ -1756,44 +1766,62 @@ async function syncFromSupabase() {
 // remote set. Otherwise a device that's merely behind on syncing would delete other
 // members' items. An empty baseline means "delete nothing", which is the safe default.
 let syncedItemIds = new Set(), syncedHistIds = new Set(), syncedTagNames = new Set();
+let syncedItemSnap = {}; // id -> serialized row as last synced; used to push only changed rows
 try { syncedItemIds  = new Set(JSON.parse(localStorage.getItem('gco_synced_items') || '[]')); } catch {}
 try { syncedHistIds  = new Set(JSON.parse(localStorage.getItem('gco_synced_hist')  || '[]')); } catch {}
 try { syncedTagNames = new Set(JSON.parse(localStorage.getItem('gco_synced_tags')  || '[]')); } catch {}
-function setSyncedItems(ids)  { syncedItemIds  = new Set(ids);   localStorage.setItem('gco_synced_items', JSON.stringify([...syncedItemIds])); }
+try { syncedItemSnap = JSON.parse(localStorage.getItem('gco_synced_snap') || '{}'); } catch {}
+function itemPayload(i) {
+  if (!i.addedAt) i.addedAt = new Date().toISOString(); // pin so serialization is stable
+  return { id: String(i.id), list_id: currentListId, name: i.name, qty: i.qty || null,
+    category: i.category || null, recipe: i.recipe || null, note: i.note || null,
+    checked: !!i.checked, added_at: i.addedAt };
+}
+function setSyncedItemState(payloads) {
+  syncedItemIds = new Set(payloads.map(p => p.id));
+  syncedItemSnap = Object.fromEntries(payloads.map(p => [p.id, JSON.stringify(p)]));
+  localStorage.setItem('gco_synced_items', JSON.stringify([...syncedItemIds]));
+  localStorage.setItem('gco_synced_snap', JSON.stringify(syncedItemSnap));
+}
 function setSyncedHist(ids)   { syncedHistIds  = new Set(ids);   localStorage.setItem('gco_synced_hist',  JSON.stringify([...syncedHistIds])); }
 function setSyncedTags(names) { syncedTagNames = new Set(names); localStorage.setItem('gco_synced_tags',  JSON.stringify([...syncedTagNames])); }
 
-// Debounced push helpers
+// Debounced push helpers. Dirty flags mark unsynced local edits: while one is set,
+// syncFromSupabase must NOT overwrite local state or the pending edit would be
+// silently reverted by an incoming realtime pull before its push ever runs.
 let _sbItemTimer = null, _sbHistTimer = null, _sbTagTimer = null;
-function scheduleSbSync() { clearTimeout(_sbItemTimer); _sbItemTimer = setTimeout(pushItemsToSupabase, 600); }
-function scheduleSbHistorySync() { clearTimeout(_sbHistTimer); _sbHistTimer = setTimeout(pushHistoryToSupabase, 600); }
-function scheduleSbTagsSync() { clearTimeout(_sbTagTimer); _sbTagTimer = setTimeout(pushTagsToSupabase, 600); }
+let _dirtyItems = false, _dirtyHist = false, _dirtyTags = false;
+function scheduleSbSync() { _dirtyItems = true; clearTimeout(_sbItemTimer); _sbItemTimer = setTimeout(pushItemsToSupabase, 600); }
+function scheduleSbHistorySync() { _dirtyHist = true; clearTimeout(_sbHistTimer); _sbHistTimer = setTimeout(pushHistoryToSupabase, 600); }
+function scheduleSbTagsSync() { _dirtyTags = true; clearTimeout(_sbTagTimer); _sbTagTimer = setTimeout(pushTagsToSupabase, 600); }
 
 async function pushItemsToSupabase() {
   if (!sbClient || !currentListId) return;
   const session = (await sbClient.auth.getSession()).data.session;
   if (!session) return;
+  _dirtyItems = false;
   try {
     const { data: existing } = await sbClient.from('items').select('id').eq('list_id', currentListId);
     const existingIds = new Set((existing || []).map(r => r.id));
-    const currentIds = new Set(items.map(i => String(i.id)));
+    const payloads = items.map(itemPayload);
+    const currentIds = new Set(payloads.map(p => p.id));
     // Delete only items THIS device knowingly removed (were in our baseline, now
     // gone locally, and still on the server). Never touch rows we never synced.
     const toDelete = [...syncedItemIds].filter(id => !currentIds.has(id) && existingIds.has(id));
     if (toDelete.length) await sbClient.rpc('delete_items', { p_ids: toDelete });
-    if (items.length) await sbClient.from('items').upsert(items.map(i => ({
-      id: String(i.id), list_id: currentListId, name: i.name, qty: i.qty || null,
-      category: i.category || null, recipe: i.recipe || null, note: i.note || null,
-      checked: !!i.checked, added_at: i.addedAt || new Date().toISOString()
-    })));
-    setSyncedItems([...currentIds]);
-  } catch(e) { console.warn('Supabase items push:', e); }
+    // Upsert only rows that changed on THIS device since the last sync —
+    // re-pushing untouched rows would overwrite edits made from other phones.
+    const toUpsert = payloads.filter(p => syncedItemSnap[p.id] !== JSON.stringify(p));
+    if (toUpsert.length) await sbClient.from('items').upsert(toUpsert);
+    setSyncedItemState(payloads);
+  } catch(e) { _dirtyItems = true; console.warn('Supabase items push:', e); }
 }
 
 async function pushHistoryToSupabase() {
   if (!sbClient || !currentListId) return;
   const session = (await sbClient.auth.getSession()).data.session;
   if (!session) return;
+  _dirtyHist = false;
   try {
     const { data: existing } = await sbClient.from('grocery_history').select('id').eq('list_id', currentListId);
     const existingIds = new Set((existing || []).map(r => r.id));
@@ -1806,13 +1834,14 @@ async function pushHistoryToSupabase() {
       bought_at: h.boughtAt || new Date().toISOString()
     })));
     setSyncedHist([...currentIds]);
-  } catch(e) { console.warn('Supabase history push:', e); }
+  } catch(e) { _dirtyHist = true; console.warn('Supabase history push:', e); }
 }
 
 async function pushTagsToSupabase() {
   if (!sbClient || !currentListId) return;
   const session = (await sbClient.auth.getSession()).data.session;
   if (!session) return;
+  _dirtyTags = false;
   try {
     const { data: existing } = await sbClient.from('recipe_tags').select('name').eq('list_id', currentListId);
     const existingNames = new Set((existing || []).map(r => r.name));
@@ -1821,7 +1850,7 @@ async function pushTagsToSupabase() {
     const toInsert = recipeTags.filter(n => !existingNames.has(n));
     if (toInsert.length) await sbClient.from('recipe_tags').insert(toInsert.map(name => ({ name, list_id: currentListId })));
     setSyncedTags([...recipeTags]);
-  } catch(e) { console.warn('Supabase tags push:', e); }
+  } catch(e) { _dirtyTags = true; console.warn('Supabase tags push:', e); }
 }
 
 async function manualSync() {
@@ -1961,16 +1990,24 @@ function subscribeToRealtime() {
   // channels (or keep one pointed at a stale list) across re-inits.
   if (_rtChannel) { sbClient.removeChannel(_rtChannel); _rtChannel = null; }
   _rtChannel = sbClient.channel('cartco-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `list_id=eq.${currentListId}` }, async () => {
-      await syncFromSupabase(); renderAll(); updateFilters(); updateCount(); renderTagManager();
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'grocery_history', filter: `list_id=eq.${currentListId}` }, async () => {
-      await syncFromSupabase(); renderHistory();
-    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `list_id=eq.${currentListId}` }, scheduleRealtimePull)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'grocery_history', filter: `list_id=eq.${currentListId}` }, scheduleRealtimePull)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'list_members', filter: `list_id=eq.${currentListId}` }, () => {
       updateShareStatus();
     })
     .subscribe();
+}
+
+// Realtime fires one event PER ROW, so a multi-item push from another phone
+// arrives as a burst. Coalesce the burst into a single pull instead of doing
+// a full re-download (and re-render) for every row.
+let _rtPullTimer = null;
+function scheduleRealtimePull() {
+  clearTimeout(_rtPullTimer);
+  _rtPullTimer = setTimeout(async () => {
+    await syncFromSupabase();
+    renderAll(); updateFilters(); updateCount(); renderTagManager(); renderHistory();
+  }, 400);
 }
 
 // Single, deduplicated post-sign-in init. Both the SIGNED_IN event and the
@@ -2021,8 +2058,8 @@ async function initApp() {
       _enterAppPromise = null;
       if (_rtChannel) { sbClient.removeChannel(_rtChannel); _rtChannel = null; }
       localStorage.removeItem('gco_list_id');
-      ['gco_synced_items','gco_synced_hist','gco_synced_tags'].forEach(k => localStorage.removeItem(k));
-      syncedItemIds = new Set(); syncedHistIds = new Set(); syncedTagNames = new Set();
+      ['gco_synced_items','gco_synced_hist','gco_synced_tags','gco_synced_snap'].forEach(k => localStorage.removeItem(k));
+      syncedItemIds = new Set(); syncedHistIds = new Set(); syncedTagNames = new Set(); syncedItemSnap = {};
       currentListId = null;
       items = []; history = []; recipeTags = [];
       renderAll(); updateFilters(); updateCount(); renderTagManager();
