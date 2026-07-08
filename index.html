@@ -1449,7 +1449,7 @@ function toggleCheck(id) {
 function deleteItem(id) { items = items.filter(i => i.id != id); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
 
 function editQty(id) {
-  const item = items.find(i => i.id === id);
+  const item = items.find(i => i.id == id);
   if (!item) return;
   const card = document.querySelector(`[data-item-id="${id}"]`);
   if (!card) return;
@@ -1469,7 +1469,7 @@ function editQty(id) {
     if (saved) return;
     saved = true;
     const val = inp.value.trim() || null;
-    const it = items.find(i => i.id === id);
+    const it = items.find(i => i.id == id);
     if (it) { it.qty = val; save(); renderList(); }
   };
   inp.addEventListener('keydown', e => {
@@ -1484,7 +1484,7 @@ function editQty(id) {
 }
 
 function editName(id) {
-  const item = items.find(i => i.id === id);
+  const item = items.find(i => i.id == id);
   if (!item) return;
   const card = document.querySelector(`[data-item-id="${id}"]`);
   if (!card) return;
@@ -1501,7 +1501,7 @@ function editName(id) {
     if (saved) return;
     saved = true;
     const val = inp.value.trim();
-    const it = items.find(i => i.id === id);
+    const it = items.find(i => i.id == id);
     if (it && val) { it.name = applyEmoji(val); save(); renderList(); }
     else renderList();
   };
@@ -1586,24 +1586,24 @@ function itemCard(item) {
   const accent = CAT_COLORS[item.category] || '';
   const accentStyle = accent ? ` style="--cat-accent:${accent}"` : '';
   const tagBtn = item.recipe
-    ? `<span class="recipe-pill" onclick="openTagPicker(${item.id})" title="Change tag">🍽 ${esc(item.recipe)}</span>`
-    : `<button class="tag-btn" onclick="openTagPicker(${item.id})">+ tag</button>`;
+    ? `<span class="recipe-pill" onclick="openTagPicker('${item.id}')" title="Change tag">🍽 ${esc(item.recipe)}</span>`
+    : `<button class="tag-btn" onclick="openTagPicker('${item.id}')">+ tag</button>`;
   const qtyEl = item.qty
-    ? `<span class="qty-pill" onclick="editQty(${item.id})">${esc(item.qty)}</span>`
-    : `<button class="add-qty-btn" onclick="editQty(${item.id})">+ qty</button>`;
+    ? `<span class="qty-pill" onclick="editQty('${item.id}')">${esc(item.qty)}</span>`
+    : `<button class="add-qty-btn" onclick="editQty('${item.id}')">+ qty</button>`;
   return `<div class="item-card${checked?' checked':''}" data-item-id="${item.id}"${accentStyle}>
-    <div class="check-circle${checked?' done':''}" onclick="toggleCheck(${item.id})">
+    <div class="check-circle${checked?' done':''}" onclick="toggleCheck('${item.id}')">
       <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5l3.5 3.5L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <div class="item-body">
-      <div class="item-name" onclick="editName(${item.id})">${esc(item.name)}</div>
+      <div class="item-name" onclick="editName('${item.id}')">${esc(item.name)}</div>
       <div class="item-sub">
         ${qtyEl}
         ${tagBtn}
         ${item.note ? `<span class="note-pill">${esc(item.note)}</span>` : ''}
       </div>
     </div>
-    <button class="del-btn" onclick="deleteItem(${item.id})">×</button>
+    <button class="del-btn" onclick="deleteItem('${item.id}')">×</button>
   </div>`;
 }
 
