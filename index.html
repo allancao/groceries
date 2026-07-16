@@ -1446,7 +1446,7 @@ function toggleCheck(id) {
   if (item.checked) { history.unshift({ ...item, boughtAt: new Date().toISOString() }); saveHistory(); }
   save(); renderAll(); updateCount();
 }
-function deleteItem(id) { items = items.filter(i => i.id != id); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
+function deleteItem(id) { tombstoneItem(id); items = items.filter(i => i.id != id); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
 
 function editQty(id) {
   const item = items.find(i => i.id == id);
@@ -1517,8 +1517,8 @@ function editName(id) {
   inp.setSelectionRange(inp.value.length, inp.value.length);
 }
 
-function clearChecked() { items = items.filter(i => !i.checked); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
-function clearHistory() { history = []; saveHistory(); renderHistory(); }
+function clearChecked() { items.filter(i => i.checked).forEach(i => tombstoneItem(i.id)); items = items.filter(i => !i.checked); save(); pruneUnusedTags(); renderAll(); updateFilters(); updateCount(); renderTagManager(); }
+function clearHistory() { history.forEach(h => tombstoneHist(h.id || h.boughtAt)); history = []; saveHistory(); renderHistory(); }
 function restoreItem(boughtAt) {
   const h = history.find(i => i.boughtAt === boughtAt);
   if (!h) return;
@@ -1662,6 +1662,7 @@ async function nukeData() {
       sbClient.rpc('delete_tags',    { p_list: currentListId, p_names: (tgRes.data || []).map(r => r.name) })
     ]).catch(() => {});
     setSyncedItemState([]); setSyncedHist([]); setSyncedTags([]);
+    pendingItemDel.clear(); pendingHistDel.clear(); savePendingDel();
   }
   renderAll(); updateFilters(); updateCount(); renderTagManager(); switchTab('list');
 }
@@ -1720,13 +1721,14 @@ async function initUserList() {
 
 async function syncFromSupabase() {
   if (!sbClient || !currentListId) return;
-  // Unsynced local edits? Push them instead of pulling — a pull now would
-  // overwrite the user's tap (check/delete/add) before its debounced push fires.
-  // Our push echoes back a realtime event, and that later pull converges cleanly.
-  if (_dirtyItems || _dirtyHist || _dirtyTags) {
+  // Unsynced local edits or pending deletions? Push them instead of pulling — a
+  // pull now would overwrite the user's tap (check/delete/add) or re-download a
+  // row we've deleted but not yet confirmed gone. Our push echoes back a realtime
+  // event, and that later pull converges cleanly.
+  if (_dirtyItems || _dirtyHist || _dirtyTags || pendingItemDel.size || pendingHistDel.size) {
     clearTimeout(_sbItemTimer); clearTimeout(_sbHistTimer); clearTimeout(_sbTagTimer);
-    if (_dirtyItems) await pushItemsToSupabase();
-    if (_dirtyHist) await pushHistoryToSupabase();
+    if (_dirtyItems || pendingItemDel.size) await pushItemsToSupabase();
+    if (_dirtyHist || pendingHistDel.size) await pushHistoryToSupabase();
     if (_dirtyTags) await pushTagsToSupabase();
     return;
   }
@@ -1743,11 +1745,13 @@ async function syncFromSupabase() {
     await pushTagsToSupabase();
     return;
   }
-  items = (itemsRes.data || []).map(r => ({
+  // Hide any row we've tombstoned but not yet confirmed deleted, so a pull can't
+  // resurrect it on screen while the delete is still in flight.
+  items = (itemsRes.data || []).filter(r => !pendingItemDel.has(String(r.id))).map(r => ({
     id: r.id, name: r.name, qty: r.qty, category: r.category,
     recipe: r.recipe, note: r.note, checked: r.checked, addedAt: r.added_at
   }));
-  history = (histRes.data || []).map(r => ({
+  history = (histRes.data || []).filter(r => !pendingHistDel.has(String(r.id))).map(r => ({
     id: r.id, name: r.name, qty: r.qty, category: r.category,
     recipe: r.recipe, note: r.note, boughtAt: r.bought_at
   }));
@@ -1786,6 +1790,19 @@ function setSyncedItemState(payloads) {
 function setSyncedHist(ids)   { syncedHistIds  = new Set(ids);   localStorage.setItem('gco_synced_hist',  JSON.stringify([...syncedHistIds])); }
 function setSyncedTags(names) { syncedTagNames = new Set(names); localStorage.setItem('gco_synced_tags',  JSON.stringify([...syncedTagNames])); }
 
+// Durable delete tombstones. A deletion is intent that must survive reloads and
+// failed/late pushes — otherwise the next pull re-downloads the "deleted" row and
+// it reappears. Ids stay here until the server confirms they're gone.
+let pendingItemDel = new Set(), pendingHistDel = new Set();
+try { pendingItemDel = new Set(JSON.parse(localStorage.getItem('gco_pending_item_del') || '[]')); } catch {}
+try { pendingHistDel = new Set(JSON.parse(localStorage.getItem('gco_pending_hist_del') || '[]')); } catch {}
+function savePendingDel() {
+  localStorage.setItem('gco_pending_item_del', JSON.stringify([...pendingItemDel]));
+  localStorage.setItem('gco_pending_hist_del', JSON.stringify([...pendingHistDel]));
+}
+function tombstoneItem(id) { pendingItemDel.add(String(id)); savePendingDel(); }
+function tombstoneHist(id) { pendingHistDel.add(String(id)); savePendingDel(); }
+
 // Debounced push helpers. Dirty flags mark unsynced local edits: while one is set,
 // syncFromSupabase must NOT overwrite local state or the pending edit would be
 // silently reverted by an incoming realtime pull before its push ever runs.
@@ -1801,14 +1818,14 @@ async function pushItemsToSupabase() {
   if (!session) return;
   _dirtyItems = false;
   try {
-    const { data: existing } = await sbClient.from('items').select('id').eq('list_id', currentListId);
-    const existingIds = new Set((existing || []).map(r => r.id));
     const payloads = items.map(itemPayload);
-    const currentIds = new Set(payloads.map(p => p.id));
-    // Delete only items THIS device knowingly removed (were in our baseline, now
-    // gone locally, and still on the server). Never touch rows we never synced.
-    const toDelete = [...syncedItemIds].filter(id => !currentIds.has(id) && existingIds.has(id));
-    if (toDelete.length) await sbClient.rpc('delete_items', { p_ids: toDelete });
+    // Deletions come from durable tombstones so they survive reloads/late pushes.
+    const toDelete = [...pendingItemDel];
+    if (toDelete.length) {
+      await sbClient.rpc('delete_items', { p_ids: toDelete });
+      toDelete.forEach(id => pendingItemDel.delete(id)); // only clear the ids we sent
+      savePendingDel();
+    }
     // Upsert only rows that changed on THIS device since the last sync —
     // re-pushing untouched rows would overwrite edits made from other phones.
     const toUpsert = payloads.filter(p => syncedItemSnap[p.id] !== JSON.stringify(p));
@@ -1823,11 +1840,13 @@ async function pushHistoryToSupabase() {
   if (!session) return;
   _dirtyHist = false;
   try {
-    const { data: existing } = await sbClient.from('grocery_history').select('id').eq('list_id', currentListId);
-    const existingIds = new Set((existing || []).map(r => r.id));
     const currentIds = new Set(history.map(h => String(h.id || h.boughtAt)));
-    const toDelete = [...syncedHistIds].filter(id => !currentIds.has(id) && existingIds.has(id));
-    if (toDelete.length) await sbClient.rpc('delete_history', { p_ids: toDelete });
+    const toDelete = [...pendingHistDel];
+    if (toDelete.length) {
+      await sbClient.rpc('delete_history', { p_ids: toDelete });
+      toDelete.forEach(id => pendingHistDel.delete(id));
+      savePendingDel();
+    }
     if (history.length) await sbClient.from('grocery_history').upsert(history.map(h => ({
       id: String(h.id || h.boughtAt), list_id: currentListId, name: h.name, qty: h.qty || null,
       category: h.category || null, recipe: h.recipe || null, note: h.note || null,
@@ -2058,8 +2077,9 @@ async function initApp() {
       _enterAppPromise = null;
       if (_rtChannel) { sbClient.removeChannel(_rtChannel); _rtChannel = null; }
       localStorage.removeItem('gco_list_id');
-      ['gco_synced_items','gco_synced_hist','gco_synced_tags','gco_synced_snap'].forEach(k => localStorage.removeItem(k));
+      ['gco_synced_items','gco_synced_hist','gco_synced_tags','gco_synced_snap','gco_pending_item_del','gco_pending_hist_del'].forEach(k => localStorage.removeItem(k));
       syncedItemIds = new Set(); syncedHistIds = new Set(); syncedTagNames = new Set(); syncedItemSnap = {};
+      pendingItemDel = new Set(); pendingHistDel = new Set();
       currentListId = null;
       items = []; history = []; recipeTags = [];
       renderAll(); updateFilters(); updateCount(); renderTagManager();
