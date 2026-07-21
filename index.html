@@ -478,7 +478,11 @@ const EMOJI_MAP = {
   almond:'🥜', cashew:'🥜', chip:'🍟', nut:'🥜', pecan:'🥜',
   pistachio:'🥜', popcorn:'🍿', walnut:'🥜',
   // Household
-  soap:'🧼', sponge:'🧽', toothpaste:'🪥',
+  soap:'🧼', sponge:'🧽', toothpaste:'🪥', cleaner:'🧼', detergent:'🧴',
+  bleach:'🧴', disinfectant:'🧴', 'dish soap':'🧼', 'toilet paper':'🧻',
+  'paper towel':'🧻', shampoo:'🧴', conditioner:'🧴', lotion:'🧴',
+  sunscreen:'🧴', deodorant:'🧴', mouthwash:'🧴', floss:'🧵', razor:'🪒',
+  'trash bag':'🗑', battery:'🔋', candle:'🕯', 'light bulb':'💡',
 };
 
 function getItemEmoji(rawName) {
@@ -498,10 +502,11 @@ function getItemEmoji(rawName) {
 
   if (base !== name && EMOJI_MAP[base]) return EMOJI_MAP[base];
 
-  // Longest-key substring match (avoids 'pea' matching 'peanut')
+  // Longest whole-word key match. Whole-word (not substring) so 'oil' can't
+  // match inside 'toilet'; longest-first so 'olive oil' beats 'oil'.
   let best = '';
   for (const key of Object.keys(EMOJI_MAP)) {
-    if (key.length > best.length && (name.includes(key) || base.includes(key))) best = key;
+    if (key.length > best.length && (kwMatches(name, key) || kwMatches(base, key))) best = key;
   }
   return best ? EMOJI_MAP[best] : '';
 }
