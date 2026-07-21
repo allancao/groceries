@@ -529,12 +529,57 @@ const CATS = {
   household: { label:'Household',      icon:'🏠', kw:['soap','shampoo','conditioner','toothpaste','deodorant','toilet paper','paper towel','dish soap','laundry','detergent','sponge','trash bag','zip lock','aluminum foil','plastic wrap','bleach','cleaner','disinfectant','lotion','razor','floss','mouthwash','sunscreen','hand sanitizer','dryer sheet','fabric softener','light bulb','battery','candle'] },
 };
 
+// Whole-word match so short keywords don't hit inside larger words
+// (e.g. "oil" must not match "t-oil-et"). Keywords may contain spaces.
+function kwMatches(text, kw) {
+  const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('\\b' + esc + '\\b').test(text);
+}
 function categorize(name) {
   const lower = name.toLowerCase();
   for (const [k, c] of Object.entries(CATS)) {
-    if (c.kw.some(w => lower.includes(w))) return k;
+    if (c.kw.some(w => kwMatches(lower, w))) return k;
   }
   return 'pantry';
+}
+
+// AI category classification (used to refine the instant local guess when an
+// API key is configured). Returns one of the 8 categories, or null on any
+// failure / no key so the caller keeps the local guess.
+const CATEGORY_KEYS = ['produce','meat','dairy','bakery','pantry','drinks','snacks','household'];
+async function aiCategorize(name) {
+  const key = localStorage.getItem('gco_apikey');
+  if (!key) return null;
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 16,
+        messages: [{ role: 'user', content:
+`Classify this shopping-list item into exactly one category.
+Categories: produce, meat, dairy, bakery, pantry, drinks, snacks, household.
+"household" = cleaning supplies, paper goods, toiletries, personal care, and other non-food items.
+Reply with ONLY the single lowercase category word.
+Item: "${name}"` }]
+      })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const out = (data.content || []).map(b => b.text || '').join('').trim().toLowerCase().replace(/[^a-z]/g, '');
+    return CATEGORY_KEYS.includes(out) ? out : null;
+  } catch { return null; }
+}
+
+// Refine a just-added item's category with AI, in the background, then persist.
+async function refineCategoryWithAI(itemId, rawName) {
+  const cat = await aiCategorize(rawName);
+  if (!cat) return;
+  const it = items.find(i => i.id === itemId);
+  if (!it || it.category === cat) return;
+  it.category = cat;
+  save(); renderAll(); updateFilters(); updateCount(); renderTagManager();
 }
 
 let items = [], history = [], recipeTags = [], activeFilter = 'all', currentTab = 'list';
@@ -1065,11 +1110,14 @@ async function handleAdd() {
   const manualCat = (sel.value && sel.value !== 'auto') ? sel.value : null;
   input.value = ''; resetCatSelect();
 
-  // Fast path: looks like a plain item name, no need for Claude
+  // Fast path: looks like a plain item name, no need for full Claude parsing.
+  // Show the item instantly with the local category guess, then (if a key is
+  // set and the user didn't force a category) let AI refine it in the background.
   if (isSimpleItem(text)) {
     const { name, qty } = quickParseItem(text);
     const cat = manualCat || categorize(name);
-    commitItems([{ name, qty, category: cat, recipe: null, note: null }], manualCat);
+    const ids = commitItems([{ name, qty, category: cat, recipe: null, note: null }], manualCat);
+    if (!manualCat && ids[0] != null) refineCategoryWithAI(ids[0], name);
   } else {
     await parseAndAdd(text, manualCat, false);
   }
@@ -1173,19 +1221,23 @@ async function parseAndAdd(text, manualCat = null, showPreview = false, source =
 
 function commitItems(parsed, manualCat) {
   const added = [];
+  const createdIds = [];
   parsed.forEach(p => {
     if (!p.name || p.name.length < 1) return;
     const cat = manualCat || p.category || categorize(p.name);
     // If a new recipe tag came back from Claude, add it to recipeTags
     if (p.recipe && !recipeTags.includes(p.recipe)) { recipeTags.push(p.recipe); saveTags(); }
     const name = applyEmoji(p.name);
-    items.unshift({ id: Date.now() + Math.random(), name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: cat, checked: false, addedAt: new Date().toISOString() });
+    const id = Date.now() + Math.random();
+    items.unshift({ id, name, qty: p.qty || null, recipe: p.recipe || null, note: p.note || null, category: cat, checked: false, addedAt: new Date().toISOString() });
     added.push(name);
+    createdIds.push(id);
   });
   save();
   if (added.length > 0) { setStatus(`✓ Added: ${added.join(', ')}`, 'thinking'); setTimeout(() => setStatus('', ''), 3000); }
   else setStatus('', '');
   renderAll(); updateFilters(); updateCount(); renderTagManager();
+  return createdIds;
 }
 
 // ── Preview sheet ──
