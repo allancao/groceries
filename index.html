@@ -118,6 +118,20 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .check-circle svg { display: none; }
 .check-circle.done svg { display: block; }
 
+/* Drag-to-recategorize */
+.drag-handle { flex-shrink: 0; align-self: stretch; display: flex; align-items: center; margin: -13px 0 -13px -6px; padding: 0 4px; color: var(--hint); cursor: grab; touch-action: none; font-size: 15px; line-height: 1; user-select: none; -webkit-user-select: none; }
+.drag-handle:active { cursor: grabbing; }
+.item-card.dragging { opacity: 0.4; }
+.drag-ghost { position: fixed; z-index: 400; pointer-events: none; background: var(--surface); border: 0.5px solid var(--border2); border-left: 3px solid var(--cat-accent, var(--accent)); border-radius: var(--radius); padding: 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); font-family: var(--font); font-size: 16px; color: var(--text); max-width: 70vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transform: translate(-50%, -50%); }
+.cat-drop-overlay { position: fixed; inset: 0; z-index: 380; display: none; flex-direction: column; justify-content: center; gap: 8px; padding: 20px; background: rgba(0,0,0,0.28); backdrop-filter: blur(2px); }
+.cat-drop-overlay.visible { display: flex; }
+.cat-drop-title { text-align: center; color: #fff; font-family: var(--font-ui); font-size: 13px; letter-spacing: 0.3px; margin-bottom: 4px; opacity: 0.9; }
+.cat-drop-zone { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 14px; background: var(--surface); border: 1.5px solid transparent; font-family: var(--font); font-size: 16px; color: var(--text); box-shadow: var(--shadow); transition: transform 0.12s, border-color 0.12s, background 0.12s; }
+.cat-drop-zone .cat-drop-icon { font-size: 20px; width: 26px; text-align: center; }
+.cat-drop-zone .cat-drop-count { margin-left: auto; font-size: 12px; color: var(--hint); font-family: var(--font-ui); }
+.cat-drop-zone.active { border-color: var(--accent); background: var(--accent-light); transform: scale(1.03); }
+.cat-drop-zone.current { opacity: 0.55; }
+
 .item-body { flex: 1; min-width: 0; }
 .item-name { font-size: 17px; font-family: var(--font); color: var(--text); line-height: 1.25; word-break: break-word; cursor: pointer; }
 .item-name:hover { color: var(--accent); }
@@ -280,6 +294,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <div id="appToast"></div>
+<div class="cat-drop-overlay" id="catDropOverlay"></div>
 
 <div id="app">
   <div class="header">
@@ -1649,6 +1664,7 @@ function itemCard(item) {
     ? `<span class="qty-pill" onclick="editQty('${item.id}')">${esc(item.qty)}</span>`
     : `<button class="add-qty-btn" onclick="editQty('${item.id}')">+ qty</button>`;
   return `<div class="item-card${checked?' checked':''}" data-item-id="${item.id}"${accentStyle}>
+    <div class="drag-handle" title="Drag to change category" onpointerdown="startCatDrag(event, '${item.id}')">⠿</div>
     <div class="check-circle${checked?' done':''}" onclick="toggleCheck('${item.id}')">
       <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5l3.5 3.5L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
@@ -1662,6 +1678,96 @@ function itemCard(item) {
     </div>
     <button class="del-btn" onclick="deleteItem('${item.id}')">×</button>
   </div>`;
+}
+
+// ── Drag an item to a different category ──
+// Drag is initiated ONLY from the grip handle, so tapping the name (rename),
+// qty, tag, check, or delete is never mistaken for a drag. Uses Pointer Events
+// (works on touch + mouse) with pointer capture so the gesture keeps tracking
+// even as the finger leaves the handle, and a small movement threshold so a
+// plain tap on the handle does nothing.
+let _catDrag = null;
+const DRAG_CATS = ['produce','meat','dairy','bakery','pantry','drinks','snacks','household'];
+
+function startCatDrag(e, id) {
+  if (e.button != null && e.button !== 0) return; // ignore secondary mouse buttons
+  e.preventDefault(); e.stopPropagation();
+  const item = items.find(i => i.id == id);
+  if (!item) return;
+  const handle = e.currentTarget;
+  try { handle.setPointerCapture(e.pointerId); } catch {}
+  _catDrag = { id, item, handle, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, started: false, ghost: null, overlay: null, activeCat: null };
+  handle.addEventListener('pointermove', onCatDragMove);
+  handle.addEventListener('pointerup', onCatDragEnd);
+  handle.addEventListener('pointercancel', onCatDragEnd);
+}
+
+function beginDragVisuals() {
+  const d = _catDrag, item = d.item;
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  ghost.style.setProperty('--cat-accent', CAT_COLORS[item.category] || 'var(--accent)');
+  ghost.textContent = item.name;
+  document.body.appendChild(ghost);
+  const overlay = document.getElementById('catDropOverlay');
+  const counts = {};
+  items.forEach(it => counts[it.category] = (counts[it.category] || 0) + 1);
+  overlay.innerHTML = '<div class="cat-drop-title">Drop into a category</div>' + DRAG_CATS.map(c => {
+    const info = CATS[c];
+    return `<div class="cat-drop-zone${c === item.category ? ' current' : ''}" data-cat="${c}">
+      <span class="cat-drop-icon">${info.icon}</span>${info.label}
+      <span class="cat-drop-count">${counts[c] || 0}</span></div>`;
+  }).join('');
+  overlay.classList.add('visible');
+  const card = document.querySelector(`.item-card[data-item-id="${d.id}"]`);
+  if (card) card.classList.add('dragging');
+  d.ghost = ghost; d.overlay = overlay; d.started = true;
+}
+
+function onCatDragMove(e) {
+  const d = _catDrag; if (!d) return;
+  e.preventDefault();
+  if (!d.started) {
+    if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return;
+    beginDragVisuals();
+  }
+  d.ghost.style.left = e.clientX + 'px';
+  d.ghost.style.top = e.clientY + 'px';
+  // Hit-test the drop zone under the pointer (hide ghost so it isn't the hit).
+  d.ghost.style.visibility = 'hidden';
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  d.ghost.style.visibility = 'visible';
+  const zone = el ? el.closest('.cat-drop-zone') : null;
+  const cat = zone ? zone.getAttribute('data-cat') : null;
+  if (cat !== d.activeCat) {
+    d.overlay.querySelectorAll('.cat-drop-zone.active').forEach(z => z.classList.remove('active'));
+    if (zone) zone.classList.add('active');
+    d.activeCat = cat;
+  }
+}
+
+function onCatDragEnd() {
+  const d = _catDrag; if (!d) return;
+  d.handle.removeEventListener('pointermove', onCatDragMove);
+  d.handle.removeEventListener('pointerup', onCatDragEnd);
+  d.handle.removeEventListener('pointercancel', onCatDragEnd);
+  try { d.handle.releasePointerCapture(d.pointerId); } catch {}
+  if (d.ghost) d.ghost.remove();
+  if (d.overlay) { d.overlay.classList.remove('visible'); d.overlay.innerHTML = ''; }
+  const card = document.querySelector(`.item-card[data-item-id="${d.id}"]`);
+  if (card) card.classList.remove('dragging');
+  const { id, activeCat } = d;
+  _catDrag = null;
+  if (activeCat) setItemCategory(id, activeCat);
+}
+
+function setItemCategory(id, cat) {
+  const it = items.find(i => i.id == id);
+  if (!it || it.category === cat) return;
+  it.category = cat;
+  save(); // persists locally + syncs the changed row
+  renderAll(); updateFilters(); updateCount(); renderTagManager();
+  showToast(`Moved to ${(CATS[cat] && CATS[cat].label) || cat}`);
 }
 
 function renderHistory() {
