@@ -340,7 +340,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     </div>
   </div>
 
-  <div id="tab-history" style="display:none;flex:1;overflow:hidden;">
+  <div id="tab-history" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
     <div class="scroll-area" style="padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:var(--font);font-size:16px;color:var(--muted);">Purchased items</span>
@@ -1753,7 +1753,7 @@ function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g
 function switchTab(t) {
   currentTab = t;
   ['list','history','settings'].forEach(id => {
-    document.getElementById('tab-'+id).style.display = id===t ? (id==='list'?'flex':'block') : 'none';
+    document.getElementById('tab-'+id).style.display = id===t ? (id==='settings'?'block':'flex') : 'none';
   });
   document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['list','history','settings'][i]===t));
   if (t === 'settings') { renderTagManager(); updateSyncStatus(); }
